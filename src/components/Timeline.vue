@@ -75,6 +75,8 @@ interface Props {
   scaleConfigs?: Record<TimelineScale, TimelineScaleConfig>
   // 父级任务自动调度：true=父级跟suivant子任务范围（默认），false=保持自身设定日期
   enableParentTaskAutoSchedule?: boolean
+  // Cursor-Zeit-Anzeige + Aufziehen einer Zeitspanne auf Rows mit task.allowTimeDraw (5-Min-Snap)
+  enableTimeDraw?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -102,6 +104,7 @@ const props = withDefaults(defineProps<Props>(), {
   ongoingTaskBackgroundColor: undefined,
   enableParentTaskAutoSchedule: true,
   scaleConfigs: undefined,
+  enableTimeDraw: false,
 })
 
 // 定义emits
@@ -128,6 +131,7 @@ const emit = defineEmits<{
       newEndDate?: string
     },
   ] // v1.9.0 资源视图垂直拖拽结束
+  'time-draw': [{ task: Task; startDate: string; endDate: string }] // Aufgezogene Zeitspanne auf einer Row
 }>()
 
 // 多语言
@@ -5736,6 +5740,137 @@ const handleAddPredecessor = (task: Task) => {
 const handleAddSuccessor = (task: Task) => {
   emit('add-successor', task)
 }
+
+// ── Cursor-Zeit-Anzeige + Drag-to-set (enableTimeDraw) ───────────────────────────
+// Snap-Raster: 5 Minuten (konsistent mit dem Balken-Resize-Snap der App)
+const TIME_DRAW_SNAP_MS = 5 * 60 * 1000
+
+// Pixel pro Millisekunde für die aktuelle Skala (spiegelt die interne Viewport-Mathematik,
+// siehe pixelPerMs-Berechnung in der Virtualisierung). MONTH/QUARTER/YEAR: Näherung über dayWidth.
+const timeDrawPixelPerMs = (): number => {
+  const scale = currentTimeScale.value
+  const cfg = effectiveScaleConfigs.value
+  if (scale === TimelineScale.HOUR) return cfg['hour'].cellWidth / (60 * 60 * 1000)
+  if (scale === TimelineScale.DAY) return cfg['day'].cellWidth / (24 * 60 * 60 * 1000)
+  if (scale === TimelineScale.WEEK) return cfg['week'].cellWidth / (7 * 24 * 60 * 60 * 1000)
+  return dayWidth.value / (24 * 60 * 60 * 1000)
+}
+
+// Mitternacht des Timeline-Starttags = Kalenderzeit bei Content-x=0 (positionCache ist tag-genau,
+// HOUR nutzt dayZero) — unabhängig von einer evtl. Uhrzeit-Komponente in startDate.
+const timeDrawOriginMs = (): number => {
+  const s = timelineConfig.value.startDate
+  return new Date(s.getFullYear(), s.getMonth(), s.getDate()).getTime()
+}
+
+// clientX → Timeline-Zeitstempel (ms), gerundet auf 5 Min. null wenn DOM noch nicht bereit.
+// Content-Rect bewegt sich mit dem Scroll → contentX ist scroll-unabhängig korrekt.
+const timeDrawEventToMs = (clientX: number): number | null => {
+  const content = bodyContentRef.value
+  if (!content) return null
+  const contentX = clientX - content.getBoundingClientRect().left
+  const ms = timeDrawOriginMs() + contentX / timeDrawPixelPerMs()
+  return Math.round(ms / TIME_DRAW_SNAP_MS) * TIME_DRAW_SNAP_MS
+}
+
+// Zeitstempel (ms) → Content-Pixel (für die Vorschau-Box)
+const timeDrawMsToContentX = (ms: number): number => {
+  return (ms - timeDrawOriginMs()) * timeDrawPixelPerMs()
+}
+
+const pad2 = (n: number): string => String(n).padStart(2, '0')
+// Anzeige im Cursor-Badge: dd.mm.yyyy HH:mm
+const formatTimeDrawCursor = (ms: number): string => {
+  const d = new Date(ms)
+  return `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+}
+// Persistenz-Format für Tasks/Backend: YYYY-MM-DD HH:mm (lokal, wie parseTaskDate erwartet)
+const formatTimeDrawTaskDate = (ms: number): string => {
+  const d = new Date(ms)
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+}
+
+// Cursor-Badge-Zustand
+const timeCursor = reactive({ visible: false, x: 0, y: 0, ms: 0 })
+// Aufzieh-Zustand (primitiv → reaktive Vorschau); der Task selbst liegt plain in drawTask
+const timeDraw = reactive({ active: false, rowIndex: 0, startMs: 0, endMs: 0 })
+let drawTask: Task | null = null
+
+const timeDrawPreviewLeft = computed(() =>
+  timeDrawMsToContentX(Math.min(timeDraw.startMs, timeDraw.endMs))
+)
+const timeDrawPreviewWidth = computed(() =>
+  Math.max(2, Math.abs(timeDrawMsToContentX(timeDraw.endMs) - timeDrawMsToContentX(timeDraw.startMs)))
+)
+
+const onTimeCursorMove = (event: MouseEvent): void => {
+  if (!props.enableTimeDraw) return
+  const ms = timeDrawEventToMs(event.clientX)
+  if (ms === null) return
+  timeCursor.visible = true
+  timeCursor.x = event.clientX
+  timeCursor.y = event.clientY
+  timeCursor.ms = ms
+  if (timeDraw.active) timeDraw.endMs = ms
+}
+
+const onTimeCursorLeave = (): void => {
+  if (timeDraw.active) return // während des Aufziehens sichtbar lassen
+  timeCursor.visible = false
+}
+
+const onTimeDrawMove = (event: MouseEvent): void => {
+  if (!timeDraw.active) return
+  const ms = timeDrawEventToMs(event.clientX)
+  if (ms === null) return
+  timeDraw.endMs = ms
+  timeCursor.visible = true
+  timeCursor.x = event.clientX
+  timeCursor.y = event.clientY
+  timeCursor.ms = ms
+}
+
+const onTimeDrawEnd = (): void => {
+  window.removeEventListener('mousemove', onTimeDrawMove, true)
+  window.removeEventListener('mouseup', onTimeDrawEnd, true)
+  const task = drawTask
+  const wasActive = timeDraw.active
+  timeDraw.active = false
+  drawTask = null
+  if (!wasActive || !task) return
+  const startMs = Math.min(timeDraw.startMs, timeDraw.endMs)
+  let endMs = Math.max(timeDraw.startMs, timeDraw.endMs)
+  if (endMs - startMs < TIME_DRAW_SNAP_MS) endMs = startMs + TIME_DRAW_SNAP_MS // mind. 5 Min
+  emit('time-draw', {
+    task,
+    startDate: formatTimeDrawTaskDate(startMs),
+    endDate: formatTimeDrawTaskDate(endMs),
+  })
+}
+
+// Shift+mousedown auf einer Row → Aufziehen starten (nur enableTimeDraw + task.allowTimeDraw,
+// leere Fläche). Ohne Shift bubbelt das Event → normale Timeline-Navigation (Scroll-Drag).
+const onTimeDrawStart = (event: MouseEvent, task: Task, rowIndex: number): void => {
+  if (!props.enableTimeDraw || !task?.allowTimeDraw || event.button !== 0 || !event.shiftKey) return
+  const target = event.target as HTMLElement
+  if (target.closest('.task-bar') || target.closest('.milestone') || target.closest('button')) return
+  const ms = timeDrawEventToMs(event.clientX)
+  if (ms === null) return
+  event.stopPropagation() // verhindert den Timeline-Scroll-Drag (handleMouseDown)
+  event.preventDefault()
+  drawTask = task
+  timeDraw.active = true
+  timeDraw.rowIndex = rowIndex
+  timeDraw.startMs = ms
+  timeDraw.endMs = ms
+  window.addEventListener('mousemove', onTimeDrawMove, true)
+  window.addEventListener('mouseup', onTimeDrawEnd, true)
+}
+
+onUnmounted(() => {
+  window.removeEventListener('mousemove', onTimeDrawMove, true)
+  window.removeEventListener('mouseup', onTimeDrawEnd, true)
+})
 </script>
 
 <template>
@@ -6053,7 +6188,12 @@ const handleAddSuccessor = (task: Task) => {
     </div>
 
     <!-- Timeline Body (Task Bar Area) -->
-    <div class="timeline-body" @scroll="handleTimelineBodyScroll">
+    <div
+      class="timeline-body"
+      @scroll="handleTimelineBodyScroll"
+      @mousemove="onTimeCursorMove"
+      @mouseleave="onTimeCursorLeave"
+    >
       <div ref="bodyContentRef" class="timeline-body-content">
         <!-- 关系线组件（Canvas 渲染，支持虚拟渲染）-->
         <!-- 任务视图：同时绘制连接线 + 周视图1号竖线 -->
@@ -6292,6 +6432,7 @@ const handleAddSuccessor = (task: Task) => {
               :style="{ top: `${originalIndex * ganttRowHeight}px`, height: `${ganttRowHeight}px` }"
               @mouseenter="handleTaskRowHover(task.id)"
               @mouseleave="handleTaskRowHover(null)"
+              @mousedown="onTimeDrawStart($event, task, originalIndex)"
             >
               <!-- 里程碑分组行：显示所有里程碑在同一行的不同时间列中，不渲染父级TaskBar -->
               <template v-if="task.type === 'milestone-group' && task.children">
@@ -6442,6 +6583,18 @@ const handleAddSuccessor = (task: Task) => {
                 </template>
               </TaskBar>
             </div>
+
+            <!-- Vorschau-Box beim Aufziehen einer Zeitspanne (enableTimeDraw) -->
+            <div
+              v-if="timeDraw.active"
+              class="jg-time-draw-preview"
+              :style="{
+                top: `${timeDraw.rowIndex * ganttRowHeight + 5}px`,
+                height: `${ganttRowHeight - 10}px`,
+                left: `${timeDrawPreviewLeft}px`,
+                width: `${timeDrawPreviewWidth}px`,
+              }"
+            ></div>
 
             <!-- 资源视图：一行渲染多个 TaskBar -->
             <div
@@ -6729,10 +6882,48 @@ const handleAddSuccessor = (task: Task) => {
       <span class="ms-arrow" :style="{ top: `${milestoneTooltipState.arrowOffsetY}px` }" />
     </div>
   </Teleport>
+
+  <!-- Cursor-Zeit-Badge (folgt dem Cursor über der Timeline; enableTimeDraw) -->
+  <Teleport to="body">
+    <div
+      v-if="props.enableTimeDraw && timeCursor.visible"
+      class="jg-time-cursor-badge"
+      :style="{
+        left: `${timeCursor.x + 14}px`,
+        top: `${timeCursor.y + 18}px`,
+      }"
+    >
+      {{ formatTimeDrawCursor(timeCursor.ms) }}
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
 @import '../styles/theme-variables.css';
+
+/* ─── Cursor-Zeit-Badge + Aufzieh-Vorschau (enableTimeDraw) ─────────────────── */
+.jg-time-cursor-badge {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  background: var(--gantt-primary, rgba(0, 0, 0, 0.82));
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.jg-time-draw-preview {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--gantt-primary, #007bff) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gantt-primary, #007bff) 60%, transparent);
+}
 
 /* ─── Singleton Tooltip CSS ─────────────────────────────────────────────────── */
 .task-hover-tooltip {
