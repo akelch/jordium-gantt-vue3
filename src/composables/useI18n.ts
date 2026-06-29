@@ -76,6 +76,7 @@ const messages = {
     milestoneDetails: '里程碑详情',
     milestoneName: '里程碑名称',
     milestoneDate: '里程碑日期',
+    selectMilestoneDate: '请选择里程碑日期',
     milestoneIcon: '里程碑图标',
     diamond: '菱形',
     rocket: '火箭',
@@ -215,6 +216,7 @@ const messages = {
     resourceAllocation: '资源分配',
     selectResource: '选择资源',
     addResource: '添加资源',
+    deleteResource: '删除资源',
     percentMinError: '最小占比为20%',
     percentMaxWarning: '占比超过100%将标记为超负荷',
     // 通用消息
@@ -396,6 +398,7 @@ const messages = {
     milestoneDetails: 'Milestone Details',
     milestoneName: 'Milestone Name',
     milestoneDate: 'Milestone Date',
+    selectMilestoneDate: 'Select milestone date',
     milestoneIcon: 'Milestone Icon',
     diamond: 'Diamond',
     rocket: 'Rocket',
@@ -537,6 +540,7 @@ const messages = {
     resourceAllocation: 'Resource Allocation',
     selectResource: 'Select resource',
     addResource: 'Add Resource',
+    deleteResource: 'Remove resource',
     percentMinError: 'Minimum percentage is 20%',
     percentMaxWarning: 'Percentage over 100% will be marked as overloaded',
     // Common messages
@@ -720,6 +724,7 @@ const messages = {
     milestoneDetails: 'Meilenstein-Details',
     milestoneName: 'Meilensteinname',
     milestoneDate: 'Meilensteindatum',
+    selectMilestoneDate: 'Meilensteindatum wählen',
     milestoneIcon: 'Meilenstein-Symbol',
     diamond: 'Raute',
     rocket: 'Rakete',
@@ -861,6 +866,7 @@ const messages = {
     resourceAllocation: 'Ressourcenzuweisung',
     selectResource: 'Ressource wählen',
     addResource: 'Ressource hinzufügen',
+    deleteResource: 'Ressource entfernen',
     percentMinError: 'Mindestprozentsatz ist 20 %',
     percentMaxWarning: 'Über 100 % wird als überlastet markiert',
     // Allgemeine Meldungen

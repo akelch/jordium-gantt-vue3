@@ -511,6 +511,14 @@ interface Props {
   resources?: Resource[]
   // v1.9.0 视图模式：'task' 任务计划视图 | 'resource' 资源计划视图
   viewMode?: 'task' | 'resource'
+  // PATCH (giiix): expliziter Zeitachsen-Override. Wenn beide gesetzt, wird die Timeline-Range
+  // NICHT aus den Tasks/Container abgeleitet, sondern fix gesetzt — nötig, um zwei GanttChart-
+  // Instanzen (z. B. Booking + Resource-Planner) deckungsgleich auszurichten (Scroll-Sync).
+  timelineStartDate?: string | Date | null
+  timelineEndDate?: string | Date | null
+  // PATCH (giiix): Anker-Datum für den initialen Scroll. Wenn gesetzt, scrollt die Timeline beim
+  // Laden (und bei Scale-Wechsel) LINKSBÜNDIG auf dieses Datum, statt „heute" zu zentrieren.
+  initialScrollDate?: string | Date | null
   // 是否使用默认的TaskDrawer
   useDefaultDrawer?: boolean
   // 是否使用默认的MilestoneDialog
@@ -2046,6 +2054,15 @@ const timelineDateRange = computed(() => {
   // 触发器依赖：确保拖拽/拉伸后会重新计算
   // eslint-disable-next-line @typescript-eslint/no-unused-expressions
   updateTaskTrigger.value
+
+  // PATCH (giiix): expliziter Override → feste, instanzübergreifend identische Range.
+  if (props.timelineStartDate && props.timelineEndDate) {
+    const oMin = new Date(props.timelineStartDate)
+    const oMax = new Date(props.timelineEndDate)
+    if (!Number.isNaN(oMin.getTime()) && !Number.isNaN(oMax.getTime())) {
+      return { min: oMin, max: oMax }
+    }
+  }
 
   // 扁平化所有任务和子任务
   const flattenTasks = (tasks: Task[]): Task[] => {
@@ -3923,6 +3940,7 @@ defineExpose({
           :milestones="milestonesForTimeline"
           :start-date="timelineDateRange.min"
           :end-date="timelineDateRange.max"
+          :initial-scroll-date="props.initialScrollDate"
           :scale-configs="mergedScaleConfigs"
           :working-hours="props.workingHours"
           :task-bar-config="props.taskBarConfig"

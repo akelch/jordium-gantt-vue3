@@ -45,6 +45,8 @@ interface Props {
   milestones?: Milestone[]
   startDate: Date
   endDate: Date
+  // PATCH (giiix): Anker-Datum für den initialen Scroll (linksbündig). Ohne Wert → „heute" zentriert.
+  initialScrollDate?: string | Date | null
   useDefaultDrawer?: boolean
   useDefaultMilestoneDialog?: boolean
   onTaskDelete?: (task: Task) => void
@@ -676,6 +678,13 @@ const computeTasksDateRange = (): TaskDateRange => {
 
 // 获取任务数据的日期范围（用于月度/年度视图时间轴范围计算）
 const getTasksDateRange = () => {
+  // PATCH (giiix): expliziter Range-Override (props.startDate/endDate) hat Vorrang vor der
+  // Task-abgeleiteten Range. Sonst rechnet jede GanttChart-Instanz ihre Breite aus IHREN Tasks
+  // → zwei gekoppelte Instanzen werden unterschiedlich breit. Mit Override nutzen alle Scale-
+  // Range-Funktionen (Hour/Day/Week/…) dieselbe Basis → deckungsgleiche Timelines.
+  if (props.startDate && props.endDate) {
+    return { minDate: new Date(props.startDate), maxDate: new Date(props.endDate) }
+  }
   if (cachedTaskDateRange) {
     return cachedTaskDateRange
   }
@@ -3446,7 +3455,22 @@ const scrollToTodayCenter = (retry = 0) => {
   hideBubbles.value = true
   isInitialScrolling.value = true
 
-  const today = new Date()
+  // PATCH (giiix): Scroll-Anker — wenn `initialScrollDate` gesetzt & gültig, dieses Datum (auf lokale
+  // Mitternacht normalisiert) als Anker nehmen und unten LINKSBÜNDIG ansteuern; sonst „heute" (wie
+  // gehabt zentriert). Der Variablenname `today` bleibt, damit die Pixel-Mathematik unten unverändert.
+  let today: Date
+  let useScrollAnchor = false
+  if (props.initialScrollDate) {
+    const anchor = new Date(props.initialScrollDate)
+    if (!isNaN(anchor.getTime())) {
+      today = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate())
+      useScrollAnchor = true
+    } else {
+      today = new Date()
+    }
+  } else {
+    today = new Date()
+  }
   const timelineStart = timelineConfig.value.startDate
 
   // 确保日期计算的精确性 - 使用年月日，忽略时分秒
@@ -3649,11 +3673,14 @@ const scrollToTodayCenter = (retry = 0) => {
   }
 
   // 计算将今日列置于中间的滚动位置
-  const centeredScrollPosition = todayPosition - containerWidth / 2 + 15
+  // PATCH (giiix): Mit Anker-Datum (initialScrollDate) LINKSBÜNDIG (kleiner Rand), sonst „heute" zentriert.
+  const targetScrollPosition = useScrollAnchor
+    ? todayPosition - 16
+    : todayPosition - containerWidth / 2 + 15
   if (typeof scrollContainer.scrollTo === 'function') {
-    scrollContainer.scrollTo({ left: Math.max(0, centeredScrollPosition), behavior: 'smooth' })
+    scrollContainer.scrollTo({ left: Math.max(0, targetScrollPosition), behavior: 'smooth' })
   } else {
-    scrollContainer.scrollLeft = Math.max(0, centeredScrollPosition)
+    scrollContainer.scrollLeft = Math.max(0, targetScrollPosition)
   }
 
   // 滚动结束后延迟显示半圆，并标记初始化完成
