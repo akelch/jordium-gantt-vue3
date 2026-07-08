@@ -5823,6 +5823,15 @@ const timeCursor = reactive({ visible: false, x: 0, y: 0, ms: 0 })
 const timeDraw = reactive({ active: false, rowIndex: 0, startMs: 0, endMs: 0 })
 let drawTask: Task | null = null
 
+// Badge-Text: während des Aufziehens die ganze Spanne (Start – Ende, gleicher Tag nur als
+// Uhrzeit), sonst die Zeit unter dem Cursor — Start/Ende sind so schon beim Ziehen ablesbar.
+const timeCursorLabel = computed(() => {
+  if (!timeDraw.active) return formatTimeDrawCursor(timeCursor.ms)
+  const start = formatTimeDrawCursor(Math.min(timeDraw.startMs, timeDraw.endMs))
+  const end = formatTimeDrawCursor(Math.max(timeDraw.startMs, timeDraw.endMs))
+  return start.slice(0, 10) === end.slice(0, 10) ? `${start} – ${end.slice(11)}` : `${start} – ${end}`
+})
+
 const timeDrawPreviewLeft = computed(() =>
   timeDrawMsToContentX(Math.min(timeDraw.startMs, timeDraw.endMs))
 )
@@ -6920,7 +6929,7 @@ onUnmounted(() => {
         top: `${timeCursor.y + 18}px`,
       }"
     >
-      {{ formatTimeDrawCursor(timeCursor.ms) }}
+      {{ timeCursorLabel }}
     </div>
   </Teleport>
 </template>
@@ -6943,13 +6952,18 @@ onUnmounted(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
+/* Schatten-Balken: deutlich sichtbare Vorwegnahme des künftigen Task-Balkens
+   (kräftige Füllung + gestrichelter Rand = „entsteht gerade", wie .task-bar.has-actual).
+   z-index MUSS über --gantt-z-row (11) liegen: die gezogene Zeile ist immer gehovert und
+   ihr opaker Hover-Stripe übermalt sonst die Vorschau → Drag-Ebene wie ein gezogener Balken. */
 .jg-time-draw-preview {
   position: absolute;
-  z-index: 5;
+  z-index: var(--gantt-z-bar-drag, 40);
   pointer-events: none;
   border-radius: 4px;
-  background: color-mix(in srgb, var(--gantt-primary, #007bff) 22%, transparent);
-  border: 1px solid color-mix(in srgb, var(--gantt-primary, #007bff) 60%, transparent);
+  background: color-mix(in srgb, var(--gantt-primary, #007bff) 45%, transparent);
+  border: 2px dashed var(--gantt-primary, #007bff);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 /* ─── Singleton Tooltip CSS ─────────────────────────────────────────────────── */
