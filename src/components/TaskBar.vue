@@ -22,6 +22,7 @@ import { useI18n } from '../composables/useI18n'
 import type { TaskBarConfig } from '../models/configs/TaskBarConfig'
 import { DEFAULT_TASK_BAR_CONFIG } from '../models/configs/TaskBarConfig'
 import type { PositionCache } from '../utils/positionCache' // v1.9.6 Phase1 位置计算缓存
+import { formatDateTimeDE } from '../utils/dateFormat'
 
 // 禁用自动继承attributes，手动应用到wrapper
 defineOptions({
@@ -2922,14 +2923,7 @@ watch(isTabHovered, tabHovered => {
 
 // 格式化日期显示
 const formatDisplayDate = (dateStr: string | undefined): string => {
-  if (!dateStr) return t('dateNotSet')
-  const date = createLocalDate(dateStr)
-  if (!date) return t('dateNotSet')
-
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  return formatDateTimeDE(dateStr) ?? t('dateNotSet')
 }
 
 // 计算工时信息

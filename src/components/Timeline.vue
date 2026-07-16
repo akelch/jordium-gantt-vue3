@@ -22,6 +22,7 @@ import { useI18n } from '../composables/useI18n'
 import { useViewMode } from '../composables/useViewMode' // v1.9.9 视图模式状态管理
 import type { TaskBarConfig } from '../models/configs/TaskBarConfig'
 import { getPredecessorIds } from '../utils/predecessorUtils'
+import { formatDateTimeDE } from '../utils/dateFormat'
 import { perfMonitor } from '../utils/perfMonitor'
 import { perfMonitor2 } from '../utils/perfMonitor2' // v1.9.6 性能诊断工具
 import type { Task } from '../models/classes/Task'
@@ -277,10 +278,9 @@ const tooltipState = reactive({
   arrowOffset: 0,
 })
 
-/** 格式化日期显示 (YYYY-MM-DD) */
+/** 格式化日期显示 (TT.MM.JJJJ HH:mm) */
 const formatTooltipDate = (dateStr: string | undefined): string => {
-  if (!dateStr) return t('dateNotSet')
-  return String(dateStr).substring(0, 10)
+  return formatDateTimeDE(dateStr) ?? t('dateNotSet')
 }
 
 /** 格式化 Date 对象为 YYYY-MM-DD 字符串（用于父级自动调度日期展示） */
