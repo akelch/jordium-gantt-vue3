@@ -1127,65 +1127,48 @@ const overflowBarStyle = computed(() => {
     baseStartOnly.getDate()
   )
 
+  // ponytail: Position/Breite exakt wie taskBarStyle rechnen (minuten-genau) - taskBarStyle ist
+  // die Formel-Quelle. So laeuft der Overflow-Strich deckungsgleich mit den Task-Balken. Frueher
+  // wurde date-only + ein ganzer Extra-Tag gerechnet und die Uhrzeit ignoriert -> der Strich war
+  // rechts und links zu lang. Bewusste Duplikation der taskBarStyle-Formel; bei Aenderung dort
+  // mitziehen. (Die Datums-Only-String-Sonderfaelle aus taskBarStyle entfallen, weil Buchungs-
+  // Bookmarks hier immer eine Uhrzeit tragen.)
   let overflowLeft = 0
   let overflowWidth = 4
 
-  if (
-    props.timelineData &&
-    props.currentTimeScale &&
-    (props.currentTimeScale === TimelineScale.WEEK ||
-      props.currentTimeScale === TimelineScale.MONTH ||
-      props.currentTimeScale === TimelineScale.QUARTER ||
-      props.currentTimeScale === TimelineScale.YEAR)
-  ) {
-    const startPosition = calculatePositionFromTimelineData(
-      startDateOnly,
-      props.timelineData,
-      props.currentTimeScale
-    )
-    const nextDay = new Date(endDateOnly)
-    nextDay.setDate(nextDay.getDate() + 1)
-    let endPosition = calculatePositionFromTimelineData(
-      nextDay,
-      props.timelineData,
-      props.currentTimeScale
-    )
-    if (endPosition === startPosition) {
-      endPosition =
-        calculatePositionFromTimelineData(endDateOnly, props.timelineData, props.currentTimeScale) +
-        props.dayWidth
+  const pixelPerMinute = props.dayWidth / (24 * 60)
+  const startMinutesIntoDay = minStart.getHours() * 60 + minStart.getMinutes()
+  const endMinutesIntoDay = maxEnd.getHours() * 60 + maxEnd.getMinutes()
+
+  if (props.currentTimeScale === TimelineScale.HOUR) {
+    const timelineStartOfDay = new Date(baseOnly)
+    timelineStartOfDay.setHours(0, 0, 0, 0)
+    const startMinutesTotal = getMinutesDiff(timelineStartOfDay, minStart)
+    const endMinutesTotal = getMinutesDiff(timelineStartOfDay, maxEnd)
+    overflowLeft = Math.max(0, startMinutesTotal * pixelPerMinute)
+    overflowWidth = Math.max((endMinutesTotal - startMinutesTotal) * pixelPerMinute, 4)
+  } else if (props.timelineData) {
+    const timelineData = props.timelineData
+    const cellOf = (d: Date): number => {
+      if (positionCache) {
+        const cached = positionCache.getPosition(d, props.currentTimeScale)
+        if (cached !== null) return cached
+      }
+      return calculatePositionFromTimelineData(d, timelineData, props.currentTimeScale)
     }
-    overflowLeft = startPosition
-    overflowWidth = Math.max(endPosition - startPosition, 4)
-  } else if (props.timelineData && props.currentTimeScale === TimelineScale.DAY) {
-    const startPosition = calculatePositionFromTimelineData(
-      startDateOnly,
-      props.timelineData,
-      props.currentTimeScale
-    )
-    const nextDay = new Date(endDateOnly)
-    nextDay.setDate(nextDay.getDate() + 1)
-    let endPosition = calculatePositionFromTimelineData(
-      nextDay,
-      props.timelineData,
-      props.currentTimeScale
-    )
-    if (endPosition === startPosition) {
-      endPosition =
-        calculatePositionFromTimelineData(endDateOnly, props.timelineData, props.currentTimeScale) +
-        props.dayWidth
-    }
-    overflowLeft = startPosition
-    overflowWidth = Math.max(endPosition - startPosition, 4)
+    overflowLeft = cellOf(startDateOnly) + startMinutesIntoDay * pixelPerMinute
+    const endPos = cellOf(endDateOnly) + endMinutesIntoDay * pixelPerMinute
+    overflowWidth = Math.max(endPos - overflowLeft, 4)
   } else {
-    const startDiff = Math.floor(
+    const startDiffDays = Math.floor(
       (startDateOnly.getTime() - baseOnly.getTime()) / (1000 * 60 * 60 * 24)
     )
-    const timeDiffMs = endDateOnly.getTime() - startDateOnly.getTime()
-    const daysDiff = Math.round(timeDiffMs / (1000 * 60 * 60 * 24))
-    const duration = daysDiff === 0 ? 1 : daysDiff + 1
-    overflowLeft = startDiff * props.dayWidth
-    overflowWidth = duration * props.dayWidth
+    const endDiffDays = Math.floor(
+      (endDateOnly.getTime() - baseOnly.getTime()) / (1000 * 60 * 60 * 24)
+    )
+    overflowLeft = startDiffDays * props.dayWidth + startMinutesIntoDay * pixelPerMinute
+    const endPos = endDiffDays * props.dayWidth + endMinutesIntoDay * pixelPerMinute
+    overflowWidth = Math.max(endPos - overflowLeft, 4)
   }
 
   // 父级 TaskBar 的实际视觉顶部由 CSS 决定：
