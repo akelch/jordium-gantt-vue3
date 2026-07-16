@@ -475,6 +475,16 @@ const timelineConfig = ref<TimelineConfig>({
 const currentTimeScale = ref<TimelineScale>(TimelineScale.DAY)
 
 // 响应外部props变化，动态更新timelineConfig
+// PATCH (giiix): zwei Korrekturen gegen den Viewport-Sprung nach Drag/Drop:
+// 1. Werte-Vergleich gegen die zuletzt gesehenen ROHEN Props — GanttChart liefert bei jedem
+//    Task-Update (updateTaskTrigger) neue Date-Objekte mit identischen Werten; der alte
+//    Vergleich gegen die GEBUFFERTE timelineConfig griff nie und schrieb bei jedem Drag-End.
+// 2. Bei echter Range-Änderung durch die scale-bewusste Pipeline gehen (updateTimelineRange
+//    → getDay/Week/…TimelineRange mit Monats-Buffern) statt die rohen Props in timelineConfig
+//    zu schreiben. Der rohe Write ließ die Tagesleiste auf die ungebufferte Range kollabieren
+//    (z. B. 151 → 59 Tage) — der Browser clampte scrollLeft und die Ansicht sprang sichtbar
+//    aus der Drop-Position (je kleiner das Fenster, desto weiter).
+let lastRawRange = { start: timelineStartDate.value.getTime(), end: timelineEndDate.value.getTime() }
 watch([timelineStartDate, timelineEndDate], ([newStart, newEnd]) => {
   // 资源视图下不响应 props 变化：
   //   GanttChart 的 timelineDateRange 计算可能传入基于任务视图的日期范围（已 computed 修复，但保留守卫作为二重保险）
@@ -482,14 +492,14 @@ watch([timelineStartDate, timelineEndDate], ([newStart, newEnd]) => {
   if (viewMode.value === 'resource') return
   if (props.startDate || props.endDate) {
     if (!isUpdatingTimelineConfig) {
-      // 范围值相等时跳过重绘，避免无效 timeline 重新生成（消除微小闪烁）
-      if (
-        newStart.getTime() === timelineConfig.value.startDate.getTime() &&
-        newEnd.getTime() === timelineConfig.value.endDate.getTime()
-      )
-        return
-      timelineConfig.value.startDate = newStart
-      timelineConfig.value.endDate = newEnd
+      if (lastRawRange.start === newStart.getTime() && lastRawRange.end === newEnd.getTime()) return
+      lastRawRange = { start: newStart.getTime(), end: newEnd.getTime() }
+      // Echte externe Range-Änderung (z. B. Projektwechsel im Konsumenten): neu verankern statt
+      // die alte Pixel-Position festzuhalten — die wäre im neuen Koordinatenraum bedeutungslos.
+      // Drag/Save-Reload kommt hier nie an (identische Raw-Range → Early-Return oben).
+      hasInitialAutoScroll = false
+      preservedViewport = null
+      updateTimelineRange()
     }
   }
 })
@@ -4652,6 +4662,52 @@ const timelineContainer = ref<HTMLElement | null>(null)
 const timelineBodyElement = ref<HTMLElement | null>(null) // 缓存timeline-body元素引用
 let scrollRafId: number | null = null // 时间轴拖拽滚动的 RAF ID
 
+// PATCH (giiix): Ein Daten-Refresh im Task-View (neues tasks-Array nach Drag/Drop/Save-Reload)
+// darf den Viewport nicht bewegen. Beim Drag-End-Re-Render kollabiert die Timeline-Breite
+// (scrollWidth) und bleibt bis zum nächsten vollen Range-Recompute kollabiert — der Browser
+// clampt scrollLeft, jeder Restore-Versuch clampt erneut. Deshalb: Ziel-Position VOR dem ersten
+// Re-Render sichern (flush: 'pre') und über Folge-Refreshes hinweg festhalten (nicht mit dem
+// geclampten Zwischenwert überschreiben), bis das Layout die Position wieder trägt. Initial-Load
+// (scrollLeft 0) und View-Wechsel (hasInitialAutoScroll false → Anker-Scroll) bleiben unberührt.
+let preservedViewport: { left: number; top: number; expiresAt: number } | null = null
+watch(
+  () => tasks.value,
+  () => {
+    if (viewMode.value !== 'task') return
+    const container = timelineContainer.value
+    if (!container) return
+    if (!preservedViewport || preservedViewport.expiresAt < Date.now()) {
+      const left = container.scrollLeft
+      const top = timelineBodyElement.value?.scrollTop ?? 0
+      if (left <= 0 && top <= 0) return
+      // 10s Lebensdauer: deckt Save+Reload auch bei langsamem Backend ab; danach verfällt das
+      // Ziel, damit ein legitim geschrumpfter Inhalt den User nicht dauerhaft festpinnt.
+      preservedViewport = { left, top, expiresAt: Date.now() + 10_000 }
+    }
+    const target = preservedViewport
+    const restore = (tries: number): void => {
+      if (preservedViewport !== target) return // neuere Konservierung läuft bereits
+      if (!container.isConnected) return // Unmount/Detach: keine Streu-Writes auf totes DOM
+      if (!hasInitialAutoScroll) {
+        preservedViewport = null // Anker-Scroll angefordert → nicht dagegen ankämpfen
+        return
+      }
+      if (Math.abs(container.scrollLeft - target.left) > 1) container.scrollLeft = target.left
+      const body = timelineBodyElement.value
+      if (body && Math.abs(body.scrollTop - target.top) > 1) body.scrollTop = target.top
+      if (Math.abs(container.scrollLeft - target.left) <= 1) {
+        preservedViewport = null // erreicht — Layout trägt die Position wieder
+        return
+      }
+      // Versuche erschöpft: Ziel NICHT verwerfen — die Breite kollabiert vom Drag-End bis zum
+      // Reload-Re-Render; der nächste Daten-Refresh nimmt das Ziel wieder auf (bis expiresAt).
+      if (tries > 0) requestAnimationFrame(() => restore(tries - 1))
+    }
+    nextTick(() => restore(90))
+  },
+  { flush: 'pre' }
+)
+
 // 边界滚动相关状态
 const isAutoScrolling = ref(false)
 let autoScrollTimer: number | null = null
@@ -5447,7 +5503,12 @@ watch([viewMode, dataSource], ([newViewMode], [oldViewMode]) => {
     // bugfix: 切换回任务视图时重置 hasInitialAutoScroll，确保 updateTimelineRange 完成后能重新定位今日
     // 场景：资源视图切换回任务视图时，updateTimelineRange 重新计算任务范围导致像素偏移，
     // 若不重置则 scrollToTodayCenter 不会被触发，今日标记将出现在视口之外
-    hasInitialAutoScroll = false
+    // PATCH (giiix): nur beim echten View-Wechsel zurücksetzen — der Watch feuert auch bei jedem
+    // Daten-Refresh im Task-View (Reload nach Drag/Drop/Save); ohne Guard wird dann der
+    // Anker-Scroll (scrollToTodayCenter) erneut ausgeführt und der Viewport des Users verworfen.
+    if (viewModeChanged) {
+      hasInitialAutoScroll = false
+    }
     debouncedUpdateTimelineRange()
   } else if (newViewMode === 'resource') {
     if (viewModeChanged) {
