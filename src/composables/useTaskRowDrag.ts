@@ -132,9 +132,12 @@ export function useTaskRowDrag(options: UseDragOptions) {
     event.preventDefault()
     event.stopPropagation()
 
-    // 确定放置位置：根据是否有子任务
-    const hasChildren = task.children && task.children.length > 0
-    const position: 'after' | 'child' = hasChildren ? 'child' : 'after'
+    // PATCH (viur): Container-Zeilen sind "hinein"-Ziele, sobald ein children-Array existiert —
+    // auch ein leeres. So lassen sich leere Gruppen per Drag befüllen; Zeilen ohne
+    // children-Array bleiben "danach"-Ziele. (Vorher: children.length > 0, leere Gruppen
+    // waren damit nie child-Ziele.)
+    const isContainer = Array.isArray(task.children)
+    const position: 'after' | 'child' = isContainer ? 'child' : 'after'
 
     dragState.value.dropTargetTask = task
     dragState.value.dropPosition = position
