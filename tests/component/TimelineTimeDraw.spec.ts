@@ -3,13 +3,13 @@ import { mount } from '@vue/test-utils'
 import Timeline from '@/components/Timeline.vue'
 
 /**
- * Führungslinie am Cursor, solange Shift gedrückt ist (enableTimeDraw).
+ * Guide line at the cursor while shift is held (enableTimeDraw).
  *
- * Sie sagt dem Nutzer zu: "wenn du jetzt drückst, ziehst du eine Zeitspanne auf". Getestet
- * wird deshalb genau die Deckung mit onTimeDrawStart — die Linie darf nur dort erscheinen,
- * wo ein Shift+Drag tatsächlich etwas tut.
+ * The line promises "press now and you draw a time span". These tests therefore pin its
+ * overlap with onTimeDrawStart: the line may only appear where a shift+drag actually does
+ * something.
  */
-describe('Timeline — Shift-Führungslinie für das Aufziehen einer Zeitspanne', () => {
+describe('Timeline - shift guide line for drawing a time span', () => {
   const GUIDE = '.jg-time-draw-guide'
 
   function mountTimeline(allowTimeDraw: boolean, enableTimeDraw = true) {
@@ -18,7 +18,7 @@ describe('Timeline — Shift-Führungslinie für das Aufziehen einer Zeitspanne'
         tasks: [
           {
             id: 1,
-            name: 'Bedarf',
+            name: 'Demand',
             startDate: '2026-01-01 08:00',
             endDate: '2026-01-02 08:00',
             allowTimeDraw,
@@ -30,7 +30,7 @@ describe('Timeline — Shift-Führungslinie für das Aufziehen einer Zeitspanne'
     })
   }
 
-  /** Cursor auf die Row setzen (hoveredTaskId) und über die Timeline bewegen. */
+  /** Put the cursor on the row (hoveredTaskId) and move it across the timeline. */
   async function hoverRow(
     wrapper: ReturnType<typeof mountTimeline>,
     options: { shiftKey?: boolean } = {}
@@ -39,7 +39,7 @@ describe('Timeline — Shift-Führungslinie für das Aufziehen einer Zeitspanne'
     await wrapper.find('.timeline-body').trigger('mousemove', { clientX: 120, clientY: 80, ...options })
   }
 
-  it('zeigt die Linie, sobald Shift über einer aufziehbaren Zeile gedrückt ist', async () => {
+  it('shows the line once shift is held over a drawable row', async () => {
     const wrapper = mountTimeline(true)
     await hoverRow(wrapper, { shiftKey: true })
 
@@ -48,7 +48,7 @@ describe('Timeline — Shift-Führungslinie für das Aufziehen einer Zeitspanne'
     wrapper.unmount()
   })
 
-  it('zeigt keine Linie ohne Shift', async () => {
+  it('shows no line without shift', async () => {
     const wrapper = mountTimeline(true)
     await hoverRow(wrapper)
 
@@ -57,8 +57,8 @@ describe('Timeline — Shift-Führungslinie für das Aufziehen einer Zeitspanne'
     wrapper.unmount()
   })
 
-  it('zeigt keine Linie auf einer Zeile ohne allowTimeDraw', async () => {
-    // Dort bricht onTimeDrawStart ab — eine Linie wäre ein leeres Versprechen.
+  it('shows no line on a row without allowTimeDraw', async () => {
+    // onTimeDrawStart bails out there, so a line would promise something that never happens.
     const wrapper = mountTimeline(false)
     await hoverRow(wrapper, { shiftKey: true })
 
@@ -66,7 +66,7 @@ describe('Timeline — Shift-Führungslinie für das Aufziehen einer Zeitspanne'
     wrapper.unmount()
   })
 
-  it('zeigt keine Linie ohne enableTimeDraw', async () => {
+  it('shows no line without enableTimeDraw', async () => {
     const wrapper = mountTimeline(true, false)
     await hoverRow(wrapper, { shiftKey: true })
 
@@ -74,9 +74,9 @@ describe('Timeline — Shift-Führungslinie für das Aufziehen einer Zeitspanne'
     wrapper.unmount()
   })
 
-  it('reagiert auf Shift ohne Mausbewegung (keydown/keyup am window)', async () => {
-    // Der häufige Fall: Cursor steht schon, dann wird Shift gedrückt. Ohne die
-    // Tastatur-Listener erschiene die Linie erst beim nächsten Pixel Mausbewegung.
+  it('reacts to shift without mouse movement (window keydown/keyup)', async () => {
+    // The common case: the cursor already rests somewhere, then shift goes down. Without the
+    // keyboard listeners the line would only appear on the next pixel of movement.
     const wrapper = mountTimeline(true)
     await hoverRow(wrapper)
     expect(wrapper.find(GUIDE).exists()).toBe(false)
@@ -91,12 +91,12 @@ describe('Timeline — Shift-Führungslinie für das Aufziehen einer Zeitspanne'
     wrapper.unmount()
   })
 
-  it('nimmt die Tastatur-Listener beim Unmount wieder ab', async () => {
+  it('detaches the keyboard listeners on unmount', async () => {
     const wrapper = mountTimeline(true)
     await hoverRow(wrapper)
     wrapper.unmount()
 
-    // Kein Fehler und kein Zugriff auf den zerstörten Zustand nach dem Unmount.
+    // No error and no access to the destroyed state after unmounting.
     expect(() =>
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', shiftKey: true }))
     ).not.toThrow()
