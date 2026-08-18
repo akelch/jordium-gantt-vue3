@@ -5879,7 +5879,7 @@ const formatTimeDrawTaskDate = (ms: number): string => {
 }
 
 // Cursor-Badge-Zustand
-const timeCursor = reactive({ visible: false, x: 0, y: 0, ms: 0 })
+const timeCursor = reactive({ visible: false, x: 0, y: 0, ms: 0, shift: false, blocked: false })
 // Aufzieh-Zustand (primitiv → reaktive Vorschau); der Task selbst liegt plain in drawTask
 const timeDraw = reactive({ active: false, rowIndex: 0, startMs: 0, endMs: 0 })
 let drawTask: Task | null = null
@@ -5900,10 +5900,42 @@ const timeDrawPreviewWidth = computed(() =>
   Math.max(2, Math.abs(timeDrawMsToContentX(timeDraw.endMs) - timeDrawMsToContentX(timeDraw.startMs)))
 )
 
+// Surfaces where a draw does NOT start: a bar drag, a milestone or a button owns the
+// gesture there. Shared by the start handler and the guide line, so the line can only
+// show up where shift+drag actually draws.
+const timeDrawBlockedTarget = (target: EventTarget | null): boolean => {
+  const el = target as HTMLElement | null
+  if (!el?.closest) return false
+  return !!(el.closest('.task-bar') || el.closest('.milestone') || el.closest('button'))
+}
+
+// Guide line at the cursor: shown once shift is held (timeCursor.shift) AND the row under
+// the cursor accepts a draw. On a row without allowTimeDraw shift+drag does nothing, so a
+// line there would promise something that never happens - same for a blocked target. While
+// drawing, the preview box takes over and the line is off.
+const timeDrawArmed = computed(() => {
+  if (!props.enableTimeDraw || !timeCursor.visible || !timeCursor.shift || timeDraw.active) return false
+  if (timeCursor.blocked) return false
+  const hovered = taskRenderedItems.value.find(item => item.task.id === hoveredTaskId.value)
+  return !!hovered?.task.allowTimeDraw
+})
+
+// The line sits on the snapped 5-minute grid, not on the raw pixel: it marks the exact start
+// a draw would get, and matches the time shown in the cursor badge.
+const timeDrawGuideLeft = computed(() => timeDrawMsToContentX(timeCursor.ms))
+
+// Shift pressed without moving the mouse: the move handler alone would reveal the line only
+// on the next pixel of movement. Listeners are attached only when the feature is enabled.
+const onTimeDrawShiftKey = (event: KeyboardEvent): void => {
+  timeCursor.shift = event.shiftKey
+}
+
 const onTimeCursorMove = (event: MouseEvent): void => {
   if (!props.enableTimeDraw) return
   const ms = timeDrawEventToMs(event.clientX)
   if (ms === null) return
+  timeCursor.shift = event.shiftKey
+  timeCursor.blocked = timeDrawBlockedTarget(event.target)
   timeCursor.visible = true
   timeCursor.x = event.clientX
   timeCursor.y = event.clientY
@@ -5949,8 +5981,7 @@ const onTimeDrawEnd = (): void => {
 // leere Fläche). Ohne Shift bubbelt das Event → normale Timeline-Navigation (Scroll-Drag).
 const onTimeDrawStart = (event: MouseEvent, task: Task, rowIndex: number): void => {
   if (!props.enableTimeDraw || !task?.allowTimeDraw || event.button !== 0 || !event.shiftKey) return
-  const target = event.target as HTMLElement
-  if (target.closest('.task-bar') || target.closest('.milestone') || target.closest('button')) return
+  if (timeDrawBlockedTarget(event.target)) return
   const ms = timeDrawEventToMs(event.clientX)
   if (ms === null) return
   event.stopPropagation() // verhindert den Timeline-Scroll-Drag (handleMouseDown)
@@ -5964,9 +5995,17 @@ const onTimeDrawStart = (event: MouseEvent, task: Task, rowIndex: number): void 
   window.addEventListener('mouseup', onTimeDrawEnd, true)
 }
 
+onMounted(() => {
+  if (!props.enableTimeDraw) return
+  window.addEventListener('keydown', onTimeDrawShiftKey)
+  window.addEventListener('keyup', onTimeDrawShiftKey)
+})
+
 onUnmounted(() => {
   window.removeEventListener('mousemove', onTimeDrawMove, true)
   window.removeEventListener('mouseup', onTimeDrawEnd, true)
+  window.removeEventListener('keydown', onTimeDrawShiftKey)
+  window.removeEventListener('keyup', onTimeDrawShiftKey)
 })
 </script>
 
@@ -6287,6 +6326,7 @@ onUnmounted(() => {
     <!-- Timeline Body (Task Bar Area) -->
     <div
       class="timeline-body"
+      :class="{ 'jg-time-draw-armed': timeDrawArmed }"
       @scroll="handleTimelineBodyScroll"
       @mousemove="onTimeCursorMove"
       @mouseleave="onTimeCursorLeave"
@@ -6518,6 +6558,14 @@ onUnmounted(() => {
         <!-- top按照50px增加是为了保证和左侧TaskList中row的高度保持一致 -->
         <!-- 同时需要考虑左侧TaskList包含1px的bottom border -->
         <div class="task-bar-container" :style="{ height: `${contentHeight}px` }">
+          <!-- Guide line at the cursor while shift is held (enableTimeDraw): marks where
+               a draw would begin. -->
+          <div
+            v-if="timeDrawArmed"
+            class="jg-time-draw-guide"
+            :style="{ left: `${timeDrawGuideLeft}px` }"
+          ></div>
+
           <div class="task-rows" :style="{ height: `${contentHeight}px` }">
             <!-- 任务视图：使用虚拟滚动分批渲染可见任务（taskRenderedItems 每帧限流 3 行新增）-->
             <div
@@ -7025,6 +7073,24 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--gantt-primary, #007bff) 45%, transparent);
   border: 2px dashed var(--gantt-primary, #007bff);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Guide line at the cursor while shift is held. Dashed like the preview box, meaning
+   "not committed yet". z-index MUST stay above --gantt-z-row (11), otherwise the opaque
+   hover stripe of the hovered row paints over the line. */
+.jg-time-draw-guide {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 0;
+  z-index: var(--gantt-z-bar-drag, 40);
+  pointer-events: none;
+  border-left: 2px dashed var(--gantt-primary, #007bff);
+}
+
+/* Shift armed: the timeline's grab cursor would promise panning instead. */
+.timeline-body.jg-time-draw-armed {
+  cursor: col-resize;
 }
 
 /* ─── Singleton Tooltip CSS ─────────────────────────────────────────────────── */
