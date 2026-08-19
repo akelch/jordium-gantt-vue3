@@ -96,6 +96,7 @@ const props = withDefaults(defineProps<Props>(), {
   rowHeight: 51,
   enableParentTaskAutoSchedule: true,
   enableTimeDraw: false,
+  enableTimePick: false,
 })
 
 const emit = defineEmits([
@@ -131,6 +132,7 @@ const emit = defineEmits([
   'taskbar-resource-change', // 任务跨资源移动事件
   'resource-drag-end', // v1.9.0 资源视图垂直拖拽结束事件
   'time-draw', // Aufgezogene Zeitspanne auf einer Row { task, startDate, endDate }
+  'time-pick', // Point in time picked by a click on a row { task, date }
 ])
 
 // 根元素引用
@@ -681,6 +683,11 @@ interface Props {
    * Emittiert 'time-draw' { task, startDate, endDate }. Default false.
    */
   enableTimeDraw?: boolean
+  /**
+   * Pick mode: guide line without a modifier; a plain click on a row with task.allowTimePick
+   * emits 'time-pick' { task, date }. For placing something at a point in time. Default false.
+   */
+  enableTimePick?: boolean
 }
 
 // TaskList的固定总长度（所有列的最小宽度之和 + 边框等额外空间）
@@ -3950,6 +3957,7 @@ defineExpose({
           :enable-milestone-tooltip="props.enableMilestoneTooltip"
           :enable-parent-task-auto-schedule="props.enableParentTaskAutoSchedule"
           :enable-time-draw="props.enableTimeDraw"
+          :enable-time-pick="props.enableTimePick"
           :pending-task-background-color="props.pendingTaskBackgroundColor"
           :delay-task-background-color="props.delayTaskBackgroundColor"
           :complete-task-background-color="props.completeTaskBackgroundColor"
@@ -3971,6 +3979,7 @@ defineExpose({
           @link-deleted="handleLinkDeleted"
           @resource-drag-end="handleResourceDragEnd"
           @time-draw="(payload) => emit('time-draw', payload)"
+          @time-pick="(payload) => emit('time-pick', payload)"
         >
           <template v-if="$slots['custom-task-content']" #custom-task-content="barScope">
             <slot name="custom-task-content" v-bind="barScope" />

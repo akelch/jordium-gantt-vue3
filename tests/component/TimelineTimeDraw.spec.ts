@@ -9,25 +9,31 @@ import Timeline from '@/components/Timeline.vue'
  * overlap with onTimeDrawStart: the line may only appear where a shift+drag actually does
  * something.
  */
+const GUIDE = '.jg-time-draw-guide'
+
+/** Mount with one row; task flags and Timeline props are set per test. */
+function mountWith(taskProps: Record<string, unknown>, props: Record<string, unknown>) {
+  return mount(Timeline, {
+    props: {
+      tasks: [
+        {
+          id: 1,
+          name: 'Row',
+          startDate: '2026-01-01 08:00',
+          endDate: '2026-01-02 08:00',
+          ...taskProps,
+        },
+      ],
+      ...props,
+    },
+    global: { stubs: { Teleport: true }, mocks: { $t: (key: string) => key } },
+  })
+}
+
 describe('Timeline - shift guide line for drawing a time span', () => {
-  const GUIDE = '.jg-time-draw-guide'
 
   function mountTimeline(allowTimeDraw: boolean, enableTimeDraw = true) {
-    return mount(Timeline, {
-      props: {
-        tasks: [
-          {
-            id: 1,
-            name: 'Demand',
-            startDate: '2026-01-01 08:00',
-            endDate: '2026-01-02 08:00',
-            allowTimeDraw,
-          },
-        ],
-        enableTimeDraw,
-      },
-      global: { stubs: { Teleport: true }, mocks: { $t: (key: string) => key } },
-    })
+    return mountWith({ allowTimeDraw }, { enableTimeDraw })
   }
 
   /** Put the cursor on the row (hoveredTaskId) and move it across the timeline. */
@@ -100,5 +106,101 @@ describe('Timeline - shift guide line for drawing a time span', () => {
     expect(() =>
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', shiftKey: true }))
     ).not.toThrow()
+  })
+})
+
+/**
+ * Pick mode (enableTimePick): the guide line is permanent, no modifier, and a plain click
+ * reports the point in time. Used for placing something at a date.
+ */
+describe('Timeline - pick mode reports a point in time on click', () => {
+  /** Put the cursor on the row and move it across the timeline. */
+  async function hover(wrapper: ReturnType<typeof mountWith>) {
+    await wrapper.find('.task-row').trigger('mouseenter')
+    await wrapper.find('.timeline-body').trigger('mousemove', { clientX: 120, clientY: 80 })
+  }
+
+  function mountPick(allowTimePick: boolean, enableTimePick = true) {
+    return mountWith({ allowTimePick }, { enableTimePick })
+  }
+
+  it('shows the guide line without any modifier', async () => {
+    // The whole mode exists to place something, so the line is the standing hint.
+    const wrapper = mountPick(true)
+    await hover(wrapper)
+
+    expect(wrapper.find(GUIDE).exists()).toBe(true)
+    expect(wrapper.find('.timeline-body').classes()).toContain('jg-time-draw-armed')
+    wrapper.unmount()
+  })
+
+  it('shows no line on a row without allowTimePick', async () => {
+    const wrapper = mountPick(false)
+    await hover(wrapper)
+
+    expect(wrapper.find(GUIDE).exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('shows no line without enableTimePick', async () => {
+    const wrapper = mountPick(true, false)
+    await hover(wrapper)
+
+    expect(wrapper.find(GUIDE).exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('emits time-pick with the task and the snapped date', async () => {
+    const wrapper = mountPick(true)
+    await hover(wrapper)
+
+    await wrapper.find('.task-row').trigger('click', { clientX: 120, clientY: 80 })
+
+    const emitted = wrapper.emitted('time-pick')
+    expect(emitted).toHaveLength(1)
+    const payload = emitted![0][0] as { task: { id: number }; date: string }
+    expect(payload.task.id).toBe(1)
+    // Same format as the draw emit, snapped to five minutes.
+    expect(payload.date).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:(00|05|10|15|20|25|30|35|40|45|50|55)$/)
+    wrapper.unmount()
+  })
+
+  it('emits nothing on a row without allowTimePick', async () => {
+    const wrapper = mountPick(false)
+    await hover(wrapper)
+
+    await wrapper.find('.task-row').trigger('click', { clientX: 120, clientY: 80 })
+
+    expect(wrapper.emitted('time-pick')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('emits nothing while pick mode is off', async () => {
+    const wrapper = mountPick(true, false)
+    await hover(wrapper)
+
+    await wrapper.find('.task-row').trigger('click', { clientX: 120, clientY: 80 })
+
+    expect(wrapper.emitted('time-pick')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('ignores a click that is not the primary button', async () => {
+    const wrapper = mountPick(true)
+    await hover(wrapper)
+
+    await wrapper.find('.task-row').trigger('click', { clientX: 120, button: 2 })
+
+    expect(wrapper.emitted('time-pick')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('shows the cursor badge in pick mode', async () => {
+    // The date under the cursor must be readable, otherwise placing is guesswork.
+    const wrapper = mountPick(true)
+    await hover(wrapper)
+
+    expect(wrapper.find('.jg-time-cursor-badge').exists()).toBe(true)
+    wrapper.unmount()
   })
 })

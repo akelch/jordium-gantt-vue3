@@ -80,6 +80,9 @@ interface Props {
   enableParentTaskAutoSchedule?: boolean
   // Cursor-Zeit-Anzeige + Aufziehen einer Zeitspanne auf Rows mit task.allowTimeDraw (5-Min-Snap)
   enableTimeDraw?: boolean
+  // Pick mode: guide line without a modifier, a plain click on a row with task.allowTimePick
+  // emits 'time-pick' { task, date }. Meant for placing something at a point in time.
+  enableTimePick?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -108,6 +111,7 @@ const props = withDefaults(defineProps<Props>(), {
   enableParentTaskAutoSchedule: true,
   scaleConfigs: undefined,
   enableTimeDraw: false,
+  enableTimePick: false,
 })
 
 // 定义emits
@@ -135,6 +139,7 @@ const emit = defineEmits<{
     },
   ] // v1.9.0 资源视图垂直拖拽结束
   'time-draw': [{ task: Task; startDate: string; endDate: string }] // Aufgezogene Zeitspanne auf einer Row
+  'time-pick': [{ task: Task; date: string }] // Point in time picked by a click (enableTimePick)
 }>()
 
 // 多语言
@@ -5920,6 +5925,20 @@ const timeDrawArmed = computed(() => {
   return !!hovered?.task.allowTimeDraw
 })
 
+/**
+ * Pick mode arms without a modifier: the whole mode exists to place something, so the line is
+ * the permanent hint rather than a shift-only one. Same truthfulness rule as the draw guide —
+ * only on rows where a click really lands (task.allowTimePick) and not over a bar.
+ */
+const timePickArmed = computed(() => {
+  if (!props.enableTimePick || !timeCursor.visible || timeCursor.blocked) return false
+  const hovered = taskRenderedItems.value.find(item => item.task.id === hoveredTaskId.value)
+  return !!hovered?.task.allowTimePick
+})
+
+/** Either mode shows the same guide line — it means the same thing in both. */
+const timeGuideVisible = computed(() => timeDrawArmed.value || timePickArmed.value)
+
 // The line sits on the snapped 5-minute grid, not on the raw pixel: it marks the exact start
 // a draw would get, and matches the time shown in the cursor badge.
 const timeDrawGuideLeft = computed(() => timeDrawMsToContentX(timeCursor.ms))
@@ -5931,7 +5950,7 @@ const onTimeDrawShiftKey = (event: KeyboardEvent): void => {
 }
 
 const onTimeCursorMove = (event: MouseEvent): void => {
-  if (!props.enableTimeDraw) return
+  if (!props.enableTimeDraw && !props.enableTimePick) return
   const ms = timeDrawEventToMs(event.clientX)
   if (ms === null) return
   timeCursor.shift = event.shiftKey
@@ -5993,6 +6012,23 @@ const onTimeDrawStart = (event: MouseEvent, task: Task, rowIndex: number): void 
   timeDraw.endMs = ms
   window.addEventListener('mousemove', onTimeDrawMove, true)
   window.addEventListener('mouseup', onTimeDrawEnd, true)
+}
+
+/**
+ * Plain click on a row in pick mode: emit the picked point in time.
+ *
+ * Guarded by the same rules as the guide line, so a click can only fire where the line was
+ * shown. The date format matches the draw emit (`YYYY-MM-DD HH:mm`, 5-minute snap).
+ * @param event - click event on the row
+ * @param task - the row's task
+ */
+const onTimePick = (event: MouseEvent, task: Task): void => {
+  if (!props.enableTimePick || !task?.allowTimePick || event.button !== 0) return
+  if (timeDrawBlockedTarget(event.target)) return
+  const ms = timeDrawEventToMs(event.clientX)
+  if (ms === null) return
+  event.stopPropagation()
+  emit('time-pick', { task, date: formatTimeDrawTaskDate(ms) })
 }
 
 onMounted(() => {
@@ -6326,7 +6362,7 @@ onUnmounted(() => {
     <!-- Timeline Body (Task Bar Area) -->
     <div
       class="timeline-body"
-      :class="{ 'jg-time-draw-armed': timeDrawArmed }"
+      :class="{ 'jg-time-draw-armed': timeGuideVisible }"
       @scroll="handleTimelineBodyScroll"
       @mousemove="onTimeCursorMove"
       @mouseleave="onTimeCursorLeave"
@@ -6561,7 +6597,7 @@ onUnmounted(() => {
           <!-- Guide line at the cursor while shift is held (enableTimeDraw): marks where
                a draw would begin. -->
           <div
-            v-if="timeDrawArmed"
+            v-if="timeGuideVisible"
             class="jg-time-draw-guide"
             :style="{ left: `${timeDrawGuideLeft}px` }"
           ></div>
@@ -6578,6 +6614,7 @@ onUnmounted(() => {
               @mouseenter="handleTaskRowHover(task.id)"
               @mouseleave="handleTaskRowHover(null)"
               @mousedown="onTimeDrawStart($event, task, originalIndex)"
+              @click="onTimePick($event, task)"
             >
               <!-- 里程碑分组行：显示所有里程碑在同一行的不同时间列中，不渲染父级TaskBar -->
               <template v-if="task.type === 'milestone-group' && task.children">
@@ -7031,7 +7068,7 @@ onUnmounted(() => {
   <!-- Cursor-Zeit-Badge (folgt dem Cursor über der Timeline; enableTimeDraw) -->
   <Teleport to="body">
     <div
-      v-if="props.enableTimeDraw && timeCursor.visible"
+      v-if="(props.enableTimeDraw || props.enableTimePick) && timeCursor.visible"
       class="jg-time-cursor-badge"
       :style="{
         left: `${timeCursor.x + 14}px`,
