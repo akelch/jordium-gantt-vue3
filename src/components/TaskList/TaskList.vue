@@ -237,7 +237,12 @@ const handleResourceClick = (resource: Resource) => {
 
 // 全局拖拽管理器
 const { startDrag, handleDragOver } = useTaskRowDrag({
-  enabled: props.enableTaskRowMove ?? false,
+  // PATCH (viur): Getter statt Wert. `enabled` wird in startDrag bei jedem mousedown
+  // gelesen; als einmalig ausgewerteter boolean friert ein Prop, das erst zur Laufzeit
+  // true wird, fuer die Lebensdauer der Komponente auf "aus" ein.
+  get enabled() {
+    return props.enableTaskRowMove ?? false
+  },
   onDrop: (draggedTask, targetTask, position) => {
     handleTaskRowMoved({ draggedTask, targetTask, position })
   },
@@ -342,6 +347,8 @@ defineExpose({
     <div ref="taskListBodyRef" class="task-list-body" @scroll="handleTaskListScroll">
       <div class="task-list-body-spacer" :style="{ height: `${startSpacerHeight}px` }"></div>
 
+      <!-- PATCH (viur): enableTaskRowMove gehoert in die v-memo-Liste. Fehlt es dort, wird
+           der Subtree beim Umschalten nicht gepatcht und :enable-drag erreicht die Zeile nie. -->
       <TaskRow
         v-for="{ task, level, rowIndex } in visibleTasks"
         :key="task.id"
@@ -353,6 +360,7 @@ defineExpose({
           task.startDate,
           task.endDate,
           task.progress,
+          props.enableTaskRowMove,
         ]"
         :task="task"
         :level="level"
