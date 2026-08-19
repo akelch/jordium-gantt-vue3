@@ -389,6 +389,14 @@ const isResizingRight = ref(false)
 const justFinishedDragOrResize = ref(false) // 标记刚刚完成拖拽或调整大小
 const dragStartX = ref(0)
 const dragStartY = ref(0) // v1.9.0 用于资源视图垂直拖拽
+/**
+ * VIUR PATCH: snap step for moving a bar. Resizing already snapped to five minutes while
+ * moving rounded to whole days (day scale) or 15 minutes (hour scale) — a task at 08:00-18:00
+ * silently jumped to midnight and got stretched to full days. Moving now uses the same step
+ * as resizing.
+ */
+const DRAG_SNAP_MS = 5 * 60 * 1000
+
 const dragStartLeft = ref(0)
 const dragStartWidth = ref(0)
 const resizeStartX = ref(0)
@@ -523,22 +531,16 @@ const taskBarStyle = computed(() => {
   // 任务视图拖拽时，直接使用像素位置驱动 left，避免「像素→日期→像素」往返导致的顿挫感
   if (viewMode.value !== 'resource' && isDragging.value && taskDragPixelLeft.value !== null) {
     left = taskDragPixelLeft.value
-    const startDate = createLocalDate(currentStartDate)
-    const endDate = createLocalDate(currentEndDate)
-    if (startDate && endDate) {
-      const startDateOnly = new Date(
-        startDate.getFullYear(),
-        startDate.getMonth(),
-        startDate.getDate()
-      )
-      const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate())
-      const timeDiffMs = endDateOnly.getTime() - startDateOnly.getTime()
-      const daysDiff = Math.round(timeDiffMs / (1000 * 60 * 60 * 24))
-      const duration = daysDiff === 0 ? 1 : daysDiff + 1
-      width = duration * props.dayWidth
-    } else {
-      width = props.dayWidth
-    }
+    /*
+     * VIUR PATCH: keep the width the bar already had. Moving never changes the duration, so the
+     * bar must not resize while it is dragged.
+     *
+     * The previous computation derived the width from the number of CALENDAR DAYS spanned
+     * (`daysDiff === 0 ? 1 : daysDiff + 1`, times dayWidth). A 08:00-18:00 task renders 10/24 of
+     * a column at rest but snapped to a full column the moment it was grabbed, and jumped to two
+     * columns as soon as the drag crossed midnight.
+     */
+    width = dragStartWidth.value || props.dayWidth
     // v1.9.0 资源视图拖拽时，优先使用精确的像素位置
   } else if (viewMode.value === 'resource' && tempTaskPixelLeft.value !== null) {
     left = tempTaskPixelLeft.value
@@ -1594,13 +1596,13 @@ const handleMouseMove = (e: MouseEvent) => {
     }
 
     if (props.currentTimeScale === TimelineScale.HOUR) {
-      // 小时视图：15分钟刻度对齐
+      // 小时视图 — VIUR PATCH: 5 minutes instead of 15, same step as resizing.
       const pixelPerMinute = props.dayWidth / (24 * 60) // 每分钟的像素数
-      const pixelPer15Minutes = pixelPerMinute * 15 // 15分钟的像素数
+      const pixelPerSnap = (pixelPerMinute * DRAG_SNAP_MS) / (60 * 1000)
 
-      // 计算新的左侧位置，对齐到15分钟刻度
+      // 计算新的左侧位置，对齐到刻度
       const newLeftRaw = Math.max(0, dragStartLeft.value + deltaX)
-      const newLeft = Math.round(newLeftRaw / pixelPer15Minutes) * pixelPer15Minutes
+      const newLeft = Math.round(newLeftRaw / pixelPerSnap) * pixelPerSnap
 
       // 计算新的开始时间（分钟精度）
       const newStartMinutes = Math.round(newLeft / pixelPerMinute)
@@ -1688,10 +1690,43 @@ const handleMouseMove = (e: MouseEvent) => {
       // 实时更新精确像素位置，供 taskBarStyle 直接使用（消除顿挫感）
       taskDragPixelLeft.value = newLeft
 
-      // 日视图、月视图、季度视图或年度视图：如果有 timelineData，使用精确计算
+      /*
+       * VIUR PATCH — day and week scale: shift the ORIGINAL dates by the dragged distance and
+       * snap to DRAG_SNAP_MS, keeping the duration to the millisecond.
+       *
+       * The path below derives the new start from the pixel position via
+       * calculateDateFromPosition, which works at day precision, and rebuilds the end from a
+       * duration counted in whole days. Moving a bar therefore rounded a 08:00-18:00 task onto
+       * midnight and stretched it to full days, while resizing snapped to five minutes.
+       *
+       * Restricted to DAY and WEEK on purpose: there dayWidth is uniformly pixels-per-day (the
+       * week column is 7 * dayWidth), so the linear pixel-to-time conversion is exact. Month,
+       * quarter and year columns cover different numbers of days, so they keep the original
+       * path — a five-minute step would be meaningless at those scales anyway.
+       */
       if (
-        (props.currentTimeScale === TimelineScale.DAY ||
-          props.currentTimeScale === TimelineScale.MONTH ||
+        props.currentTimeScale === TimelineScale.DAY ||
+        props.currentTimeScale === TimelineScale.WEEK
+      ) {
+        const originalStart = createLocalDate(props.task.startDate) || props.startDate
+        const originalEnd = createLocalDate(props.task.endDate) || originalStart
+        const msPerPixel = (24 * 60 * 60 * 1000) / props.dayWidth
+        const movedMs = originalStart.getTime() + (newLeft - dragStartLeft.value) * msPerPixel
+        const snappedStart = new Date(Math.round(movedMs / DRAG_SNAP_MS) * DRAG_SNAP_MS)
+        const snappedEnd = new Date(
+          snappedStart.getTime() + (originalEnd.getTime() - originalStart.getTime())
+        )
+
+        tempTaskData.value = {
+          startDate: formatDateToLocalString(snappedStart),
+          endDate: formatDateToLocalString(snappedEnd),
+        }
+        dragTooltipContent.value = {
+          startDate: formatDateToLocalString(snappedStart),
+          endDate: formatDateToLocalString(snappedEnd),
+        }
+      } else if (
+        (props.currentTimeScale === TimelineScale.MONTH ||
           props.currentTimeScale === TimelineScale.QUARTER ||
           props.currentTimeScale === TimelineScale.YEAR) &&
         props.timelineData
