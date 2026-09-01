@@ -7,17 +7,17 @@ export interface TaskRowLayouts {
   taskHeights: Map<string | number, number>
 }
 
-/** Gleiche Zeilenhoehe wie der gantt-row-height-Default in GanttChart. */
+/** Same row height as the gantt-row-height default in GanttChart. */
 export const ZEILENHOEHE = 51
 
 /**
- * Seit v1.12.x lesen TaskList und Timeline die Zeilenpositionen aus dem
- * taskRowLayouts-Inject, das sonst nur GanttChart bereitstellt. Ohne dieses Inject
- * greift der Default mit cumulativeHeights [0] - der virtuelle Sichtbereich ist dann
- * leer und eine allein gemountete Komponente rendert keine einzige Zeile.
+ * Since v1.12.x TaskList and Timeline read the row positions from the taskRowLayouts inject,
+ * which only GanttChart provides. Without that inject the default with cumulativeHeights [0]
+ * applies: the virtual viewport is empty and a component mounted on its own renders no rows
+ * at all.
  *
- * Diese Fabrik baut das Inject fuer Tests nach, die eine Komponente ohne GanttChart
- * mounten: gleiche Hoehe fuer jede Zeile, Reihenfolge wie beim Flachlegen des Baums.
+ * This factory rebuilds the inject for tests that mount a component without GanttChart: the
+ * same height for every row, ordered the way the tree is flattened.
  */
 export function makeTaskRowLayouts(
   tasks: Task[],
@@ -42,7 +42,7 @@ export function makeTaskRowLayouts(
   })
 }
 
-/** Fertiges global.provide fuer mount(). */
+/** Ready-made global.provide for mount(). */
 export function taskRowLayoutsProvide(tasks: Task[], zeilenhoehe = ZEILENHOEHE) {
   return { taskRowLayouts: makeTaskRowLayouts(tasks, zeilenhoehe) }
 }

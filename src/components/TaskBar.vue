@@ -24,6 +24,16 @@ import { DEFAULT_TASK_BAR_CONFIG } from '../models/configs/TaskBarConfig'
 import type { PositionCache } from '../utils/positionCache' // v1.9.6 Phase1 位置计算缓存
 import { formatDateTimeDE } from '../utils/dateFormat'
 import { getEffectiveEndDateOnly } from '../utils/dateBoundaryUtils' // v1.13.5 endDate带time部分时的有效日期边界计算
+import { useGanttBus } from '../utils/ganttBus'
+import { useGanttQuery } from '../utils/ganttScope'
+
+// PATCH (viur): element lookups scoped to this instance — document.querySelector would
+// return the first match on the page and thus another GanttChart instance's elements.
+const { query } = useGanttQuery()
+
+// PATCH (viur): this instance's bus — the internal coordination events used to run on
+// `window`, so every other GanttChart instance on the page received them too.
+const ganttBus = useGanttBus()
 
 // 禁用自动继承attributes，手动应用到wrapper
 defineOptions({
@@ -1326,7 +1336,7 @@ const handleMouseDown = (e: MouseEvent, type: 'drag' | 'resize-left' | 'resize-r
   }
 
   // 获取TaskBar相对于Timeline容器的位置
-  const timelineContainer = document.querySelector('.timeline') as HTMLElement
+  const timelineContainer = query('.timeline') as HTMLElement
   if (!timelineContainer || !barRef.value) return
 
   // 在 mousedown 事件中读取位置是合理的（不是高频操作）
@@ -1355,7 +1365,7 @@ const handleMouseDown = (e: MouseEvent, type: 'drag' | 'resize-left' | 'resize-r
   }
 
   // 监听自动滚动事件
-  window.addEventListener('timeline-auto-scroll', handleAutoScroll as EventListener)
+  ganttBus.addEventListener('timeline-auto-scroll', handleAutoScroll as EventListener)
 
   document.addEventListener('mousemove', handleMouseMove)
   document.addEventListener('mouseup', handleMouseUp)
@@ -1437,7 +1447,7 @@ const handleMouseMove = (e: MouseEvent) => {
     ;(window as any).lastDragMouseY = e.clientY
 
     // v1.9.0 检测是否跨行拖拽（基于资源行的实际高度）
-    const timelineBody = document.querySelector('.timeline-body')
+    const timelineBody = query('.timeline-body')
     let isCrossRowDrag = false
 
     if (timelineBody && isDragging.value && isDragThresholdMet.value && props.currentResourceId) {
@@ -1511,7 +1521,7 @@ const handleMouseMove = (e: MouseEvent) => {
   }
 
   // 发送边界检测事件给Timeline
-  window.dispatchEvent(
+  ganttBus.dispatchEvent(
     new CustomEvent('drag-boundary-check', {
       detail: {
         mouseX: e.clientX,
@@ -1542,7 +1552,7 @@ const handleMouseMove = (e: MouseEvent) => {
       const taskBarNewLeft = e.clientX - dragPreviewOffsetX.value
 
       // 需要获取timeline body的位置来计算相对位置
-      const timelineBody = document.querySelector('.timeline-body')
+      const timelineBody = query('.timeline-body')
       if (timelineBody) {
         const bodyRect = timelineBody.getBoundingClientRect()
         const scrollLeft = (timelineBody as HTMLElement).scrollLeft
@@ -2061,7 +2071,7 @@ const handleMouseUp = () => {
   quarterDragOverride.value = null
 
   // 停止边界检测
-  window.dispatchEvent(
+  ganttBus.dispatchEvent(
     new CustomEvent('drag-boundary-check', {
       detail: {
         mouseX: 0,
@@ -2083,7 +2093,7 @@ const handleMouseUp = () => {
     dragEndX.value = (window as any).event?.clientX || 0
 
     // 检测是否跨行（基于资源行的实际高度）
-    const timelineBody = document.querySelector('.timeline-body')
+    const timelineBody = query('.timeline-body')
     if (timelineBody) {
       const bodyRect = timelineBody.getBoundingClientRect()
       const mouseY = (window as any).lastDragMouseY || 0
@@ -2103,7 +2113,7 @@ const handleMouseUp = () => {
     // 只有跨行拖拽才发送drop事件
     if (isCrossRowDrag) {
       // 发送最后的鼠标位置给Timeline，让它确定目标资源
-      window.dispatchEvent(
+      ganttBus.dispatchEvent(
         new CustomEvent('resource-taskbar-drop', {
           detail: {
             taskId: props.task.id,
@@ -2152,7 +2162,7 @@ const handleMouseUp = () => {
   }
 
   // 清理自动滚动监听器
-  window.removeEventListener('timeline-auto-scroll', handleAutoScroll as EventListener)
+  ganttBus.removeEventListener('timeline-auto-scroll', handleAutoScroll as EventListener)
 
   // 如果发生了拖拽或调整大小，设置标志防止触发 click 事件
   if (isDragging.value || isResizingLeft.value || isResizingRight.value) {
@@ -2226,11 +2236,11 @@ onMounted(() => {
     })
   }
 
-  window.addEventListener('timeline-scale-updated', handleTimelineScaleUpdate)
-  window.addEventListener('timeline-force-recalculate', handleForceRecalculate)
+  ganttBus.addEventListener('timeline-scale-updated', handleTimelineScaleUpdate)
+  ganttBus.addEventListener('timeline-force-recalculate', handleForceRecalculate)
 
   // 监听全局关闭菜单事件
-  window.addEventListener('close-all-taskbar-menus', closeContextMenu)
+  ganttBus.addEventListener('close-all-taskbar-menus', closeContextMenu)
   document.addEventListener('click', handleDocumentClick)
 
   // 清理函数
@@ -2241,9 +2251,9 @@ onMounted(() => {
       nameResizeObserver = null
     }
 
-    window.removeEventListener('timeline-scale-updated', handleTimelineScaleUpdate)
-    window.removeEventListener('timeline-force-recalculate', handleForceRecalculate)
-    window.removeEventListener('close-all-taskbar-menus', closeContextMenu)
+    ganttBus.removeEventListener('timeline-scale-updated', handleTimelineScaleUpdate)
+    ganttBus.removeEventListener('timeline-force-recalculate', handleForceRecalculate)
+    ganttBus.removeEventListener('close-all-taskbar-menus', closeContextMenu)
     window.removeEventListener('resource-drag-cancel', handleResourceDragCancel as EventListener)
     document.removeEventListener('click', handleDocumentClick)
 
@@ -2293,7 +2303,7 @@ watch(
       // 清理事件监听器
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
-      window.removeEventListener('timeline-auto-scroll', handleAutoScroll as EventListener)
+      ganttBus.removeEventListener('timeline-auto-scroll', handleAutoScroll as EventListener)
 
       // 清理定时器
       if (longPressTimer.value) {
@@ -2309,7 +2319,7 @@ watch(
       // 如果刚刚完成拖拽/resize，不应该启动 Timeline 拖拽
       if (!wasInteracting && !justFinishedDragOrResize.value) {
         // 触发自定义事件，通知Timeline启动拖拽滚动
-        window.dispatchEvent(
+        ganttBus.dispatchEvent(
           new CustomEvent('taskbar-highlighted', {
             detail: {
               taskId: props.task.id,
@@ -2903,7 +2913,7 @@ const handleBubbleMouseEnter = (event: MouseEvent) => {
   const tooltipHeight = 200 // tooltip预估高度
 
   // 获取.gantt-panel-right容器的边界
-  const timelineContainer = document.querySelector('.gantt-panel-right')
+  const timelineContainer = query('.gantt-panel-right')
   const containerRect = timelineContainer?.getBoundingClientRect()
 
   let x = event.clientX
@@ -3475,7 +3485,7 @@ function handleContextMenu(event: MouseEvent) {
   }
 
   // 先广播关闭所有TaskBar菜单
-  window.dispatchEvent(new CustomEvent('close-all-taskbar-menus'))
+  ganttBus.dispatchEvent(new CustomEvent('close-all-taskbar-menus'))
   const taskType = props.task.type || 'task'
   if (taskType !== 'task' && taskType !== 'story') {
     // 为了排除里程碑类型

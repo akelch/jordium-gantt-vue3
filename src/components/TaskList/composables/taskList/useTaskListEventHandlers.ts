@@ -2,6 +2,7 @@ import type { Ref } from 'vue'
 import type { Task } from '../../../../models/classes/Task'
 import { updateParentTasksData, getAllTasks } from './useTaskParentCalculation'
 import type { ComputedRef } from 'vue'
+import { useGanttBus } from '../../../../utils/ganttBus'
 
 /**
  * TaskList 事件处理逻辑
@@ -20,6 +21,8 @@ export interface TaskListEventHandlersOptions {
 }
 
 export function useTaskListEventHandlers(options: TaskListEventHandlersOptions) {
+  // PATCH (viur): this instance's bus instead of `window` — see utils/ganttBus.
+  const ganttBus = useGanttBus()
   const {
     tasks,
     hoveredTaskId,
@@ -39,7 +42,7 @@ export function useTaskListEventHandlers(options: TaskListEventHandlersOptions) 
     }
 
     hoveredTaskId.value = taskId
-    window.dispatchEvent(
+    ganttBus.dispatchEvent(
       new CustomEvent('task-list-hover', {
         detail: taskId,
       })
@@ -57,7 +60,7 @@ export function useTaskListEventHandlers(options: TaskListEventHandlersOptions) 
       return
     }
 
-    window.dispatchEvent(
+    ganttBus.dispatchEvent(
       new CustomEvent('task-row-double-click', {
         detail: task,
       })
@@ -113,7 +116,7 @@ export function useTaskListEventHandlers(options: TaskListEventHandlersOptions) 
 
   const handleRequestTaskList = () => {
     const allTasks = getAllTasks(tasks.value)
-    window.dispatchEvent(
+    ganttBus.dispatchEvent(
       new CustomEvent('task-list-updated', {
         detail: allTasks,
       })
@@ -160,9 +163,9 @@ export function useTaskListEventHandlers(options: TaskListEventHandlersOptions) 
     if (_isSyncingScrollFromTimeline) return
 
     // 滚动时关闭所有右键菜单
-    window.dispatchEvent(new CustomEvent('close-all-taskbar-menus'))
+    ganttBus.dispatchEvent(new CustomEvent('close-all-taskbar-menus'))
 
-    window.dispatchEvent(
+    ganttBus.dispatchEvent(
       new CustomEvent('task-list-vertical-scroll', {
         detail: { scrollTop },
       })
@@ -190,7 +193,7 @@ export function useTaskListEventHandlers(options: TaskListEventHandlersOptions) 
 
   const handleTaskRowContextMenu = (event: { task: Task; position: { x: number; y: number } }) => {
     try {
-      window.dispatchEvent(
+      ganttBus.dispatchEvent(
         new CustomEvent('context-menu', {
           detail: event,
         })
@@ -216,31 +219,31 @@ export function useTaskListEventHandlers(options: TaskListEventHandlersOptions) 
   // ==================== 事件监听器注册和清理 ====================
 
   const registerEventListeners = () => {
-    window.addEventListener('task-updated', handleTaskUpdated as EventListener)
+    ganttBus.addEventListener('task-updated', handleTaskUpdated as EventListener)
     window.addEventListener('task-added', handleTaskAdded as EventListener)
-    window.addEventListener('request-task-list', handleRequestTaskList as EventListener)
-    window.addEventListener('timeline-task-hover', handleTimelineHover as EventListener)
-    window.addEventListener(
+    ganttBus.addEventListener('request-task-list', handleRequestTaskList as EventListener)
+    ganttBus.addEventListener('timeline-task-hover', handleTimelineHover as EventListener)
+    ganttBus.addEventListener(
       'timeline-vertical-scroll',
       handleTimelineVerticalScroll as EventListener
     )
     window.addEventListener('milestone-icon-changed', handleMilestoneIconChange as EventListener)
-    window.addEventListener('splitter-drag-start', handleSplitterDragStart as EventListener)
-    window.addEventListener('splitter-drag-end', handleSplitterDragEnd as EventListener)
+    ganttBus.addEventListener('splitter-drag-start', handleSplitterDragStart as EventListener)
+    ganttBus.addEventListener('splitter-drag-end', handleSplitterDragEnd as EventListener)
   }
 
   const unregisterEventListeners = () => {
-    window.removeEventListener('task-updated', handleTaskUpdated as EventListener)
+    ganttBus.removeEventListener('task-updated', handleTaskUpdated as EventListener)
     window.removeEventListener('task-added', handleTaskAdded as EventListener)
-    window.removeEventListener('request-task-list', handleRequestTaskList as EventListener)
-    window.removeEventListener('timeline-task-hover', handleTimelineHover as EventListener)
-    window.removeEventListener(
+    ganttBus.removeEventListener('request-task-list', handleRequestTaskList as EventListener)
+    ganttBus.removeEventListener('timeline-task-hover', handleTimelineHover as EventListener)
+    ganttBus.removeEventListener(
       'timeline-vertical-scroll',
       handleTimelineVerticalScroll as EventListener
     )
     window.removeEventListener('milestone-icon-changed', handleMilestoneIconChange as EventListener)
-    window.removeEventListener('splitter-drag-start', handleSplitterDragStart as EventListener)
-    window.removeEventListener('splitter-drag-end', handleSplitterDragEnd as EventListener)
+    ganttBus.removeEventListener('splitter-drag-start', handleSplitterDragStart as EventListener)
+    ganttBus.removeEventListener('splitter-drag-end', handleSplitterDragEnd as EventListener)
   }
 
   return {

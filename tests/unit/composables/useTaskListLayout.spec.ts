@@ -17,10 +17,10 @@ const vieleZeilen = (anzahl: number): Task[] =>
   Array.from({ length: anzahl }, (_, i) => createTask({ id: i + 1, name: `Zeile ${i + 1}` }))
 
 /**
- * Der Composable liest Ansichtsmodus, Zeilenhoehe und taskRowLayouts per inject. Ausserhalb
- * von setup() liefert inject undefined statt des Defaults - er braucht darum eine
- * Host-Komponente. taskRowLayouts muss dabei aus einer *Eltern*-Komponente kommen: Vue
- * reicht provide nur an Nachfahren weiter, nicht an die Komponente selbst.
+ * The composable reads view mode, row height and taskRowLayouts via inject. Outside of setup()
+ * inject returns undefined instead of the default, so it needs a host component. taskRowLayouts
+ * has to come from a *parent* component: Vue passes provide down to descendants only, never to
+ * the providing component itself.
  */
 function layoutIn(tasks: Ref<Task[]>) {
   let layout!: ReturnType<typeof useTaskListLayout>
@@ -71,9 +71,9 @@ describe('useTaskListLayout - Sichtbereich des virtuellen Scrollens', () => {
 
     layout.taskListBodyHeight.value = 20 * ZEILENHOEHE
 
-    // 20 gemessene Zeilen statt der 12 aus der Ersatzhoehe, plus 5 Puffer, plus die
-    // angeschnittene Zeile an der Unterkante: 1020 liegt genau auf einer Zeilengrenze,
-    // die Binaersuche zaehlt die dort beginnende Zeile mit.
+    // 20 measured rows instead of the 12 from the fallback height, plus 5 buffer rows, plus the
+    // partially visible row at the bottom edge: 1020 sits exactly on a row boundary and the
+    // binary search counts the row starting there.
     expect(layout.visibleTaskRange.value.endIndex).toBe(26)
   })
 

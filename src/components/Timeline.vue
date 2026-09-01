@@ -39,6 +39,16 @@ import type {
 import { positionCache } from '../utils/positionCache' // v1.9.6 Phase1 位置计算缓存
 import { applyTimelineFormat } from '../utils/timelineFormat' // v1.13.0 抽取为共享工具，供 ResourceUsageView 复用同一套格式化逻辑
 import { computeTaskViewLogicalPosition } from '../utils/taskPositionUtils' // 逻辑坐标种子填充
+import { useGanttBus } from '../utils/ganttBus'
+import { useGanttQuery } from '../utils/ganttScope'
+
+// PATCH (viur): element lookups scoped to this instance — document.querySelector would
+// return the first match on the page and thus another GanttChart instance's elements.
+const { query, queryAll } = useGanttQuery()
+
+// PATCH (viur): this instance's bus — the internal coordination events used to run on
+// `window`, so every other GanttChart instance on the page received them too.
+const ganttBus = useGanttBus()
 
 // 定义Props接口
 interface Props {
@@ -3024,7 +3034,7 @@ const handleTaskRowHover = (taskId: number | string | null) => {
 
   hoveredTaskId.value = taskId
   // 发送事件通知TaskList组件
-  window.dispatchEvent(
+  ganttBus.dispatchEvent(
     new CustomEvent('timeline-task-hover', {
       detail: taskId,
     })
@@ -3432,11 +3442,11 @@ const updateTimeScale = (scale: TimelineScale) => {
     emit('timeline-scale-changed', scale)
 
     // 2. 触发TaskBar重新计算位置事件
-    window.dispatchEvent(new CustomEvent('timeline-scale-updated'))
+    ganttBus.dispatchEvent(new CustomEvent('timeline-scale-updated'))
 
     // 3. 延迟一点再次触发，确保所有组件都已更新
     setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('timeline-force-recalculate'))
+      ganttBus.dispatchEvent(new CustomEvent('timeline-force-recalculate'))
 
       // 4. 视图切换完成后，定位到今日
       setTimeout(() => {
@@ -3943,7 +3953,7 @@ const scrollToToday = () => {
 
   // 添加今日高亮效果
   setTimeout(() => {
-    const todayColumns = document.querySelectorAll('.day-column.today')
+    const todayColumns = queryAll('.day-column.today')
     for (const column of todayColumns) {
       column.classList.add('today-highlight')
       // 2秒后移除高亮效果
@@ -4108,7 +4118,7 @@ const updateTask = (updatedTask: Task) => {
 
   // 不直接修改props数据，而是通过事件通知父组件
   // 触发全局事件，通知父组件更新数据
-  window.dispatchEvent(
+  ganttBus.dispatchEvent(
     new CustomEvent('task-updated', {
       detail: updatedTask,
     })
@@ -4415,7 +4425,7 @@ const handleTaskBarDragEnd = (updatedTask: Task) => {
   // 记录变化的TaskBar ID（用于增量冲突更新）
   lastChangedTaskId.value = updatedTask.id
   // 通过全局事件或 emit/props 回调传递给 GanttChart
-  window.dispatchEvent(new CustomEvent('taskbar-drag-end', { detail: updatedTask }))
+  ganttBus.dispatchEvent(new CustomEvent('taskbar-drag-end', { detail: updatedTask }))
 }
 const handleTaskBarResizeEnd = (updatedTask: Task) => {
   // 如果是资源视图，需要更新dataSource中的资源数据
@@ -4436,13 +4446,13 @@ const handleTaskBarResizeEnd = (updatedTask: Task) => {
   }
   // 记录变化的TaskBar ID（用于增量冲突更新）
   lastChangedTaskId.value = updatedTask.id
-  window.dispatchEvent(new CustomEvent('taskbar-resize-end', { detail: updatedTask }))
+  ganttBus.dispatchEvent(new CustomEvent('taskbar-resize-end', { detail: updatedTask }))
 }
 
 // 处理TaskBar右键菜单事件 - 将事件转发给父组件
 const handleTaskBarContextMenu = (event: { task: Task; position: { x: number; y: number } }) => {
   // 将事件转发为全局事件，让GanttChart组件处理
-  window.dispatchEvent(
+  ganttBus.dispatchEvent(
     new CustomEvent('context-menu', {
       detail: event,
     })
@@ -4474,7 +4484,7 @@ const handleScrollToPosition = (targetScrollLeft: number) => {
 
 // 向上传递 MilestonePoint 拖拽事件
 const handleMilestoneDragEnd = (updatedMilestone: Milestone) => {
-  window.dispatchEvent(new CustomEvent('milestone-drag-end', { detail: updatedMilestone }))
+  ganttBus.dispatchEvent(new CustomEvent('milestone-drag-end', { detail: updatedMilestone }))
 }
 
 onMounted(() => {
@@ -4485,43 +4495,43 @@ onMounted(() => {
     }, 60) // 增加延迟，确保宽度和数据都已渲染
   })
   // 监听TaskList的双击事件
-  window.addEventListener('task-row-double-click', handleTaskListDoubleClick as EventListener)
+  ganttBus.addEventListener('task-row-double-click', handleTaskListDoubleClick as EventListener)
   // 监听TaskList的悬停事件
-  window.addEventListener('task-list-hover', handleTaskListHover as EventListener)
+  ganttBus.addEventListener('task-list-hover', handleTaskListHover as EventListener)
   // 监听TaskList的垂直滚动事件
-  window.addEventListener(
+  ganttBus.addEventListener(
     'task-list-vertical-scroll',
     handleTaskListVerticalScroll as EventListener
   )
   // 监听语言变化
   window.addEventListener('locale-changed', handleLocaleChange as EventListener)
   // 监听Splitter拖拽事件
-  window.addEventListener('splitter-drag-start', handleSplitterDragStart as EventListener)
-  window.addEventListener('splitter-drag-end', handleSplitterDragEnd as EventListener)
+  ganttBus.addEventListener('splitter-drag-start', handleSplitterDragStart as EventListener)
+  ganttBus.addEventListener('splitter-drag-end', handleSplitterDragEnd as EventListener)
   // 监听Timeline容器resize事件（TaskList切换等）
-  window.addEventListener(
+  ganttBus.addEventListener(
     'timeline-container-resized',
     handleTimelineContainerResized as EventListener
   )
 
   // 监听里程碑点击定位事件
-  window.addEventListener('milestone-click-locate', handleMilestoneClickLocate as EventListener)
+  ganttBus.addEventListener('milestone-click-locate', handleMilestoneClickLocate as EventListener)
 
   // 监听拖拽边界检测事件
-  window.addEventListener('drag-boundary-check', handleDragBoundaryCheck as EventListener)
+  ganttBus.addEventListener('drag-boundary-check', handleDragBoundaryCheck as EventListener)
 
   // 监听TaskBar高亮事件
-  window.addEventListener('taskbar-highlighted', handleTaskBarHighlighted as EventListener)
+  ganttBus.addEventListener('taskbar-highlighted', handleTaskBarHighlighted as EventListener)
 
   // 监听资源视图垂直拖拽事件
-  window.addEventListener('resource-taskbar-drop', handleResourceTaskBarDrop as EventListener)
+  ganttBus.addEventListener('resource-taskbar-drop', handleResourceTaskBarDrop as EventListener)
 
   // 设置ResizeObserver监听timeline-body的尺寸变化
   nextTick(() => {
     // 初始化并缓存 DOM 元素引用
-    const timelineBody = document.querySelector('.timeline-body') as HTMLElement
-    const timelineContainer = document.querySelector('.timeline') as HTMLElement
-    const timelinePanel = document.querySelector('.gantt-panel-right') as HTMLElement
+    const timelineBody = query('.timeline-body') as HTMLElement
+    const timelineContainer = query('.timeline') as HTMLElement
+    const timelinePanel = query('.gantt-panel-right') as HTMLElement
 
     // 缓存到 ref 中
     timelineBodyElement.value = timelineBody
@@ -4670,7 +4680,7 @@ const handleTimelineBodyScroll = (event: Event) => {
 
   // 同步垂直滚动到TaskList
   if (scrollTop >= 0) {
-    window.dispatchEvent(
+    ganttBus.dispatchEvent(
       new CustomEvent('timeline-vertical-scroll', {
         detail: { scrollTop },
       })
@@ -5029,7 +5039,7 @@ const handleMouseMove = (event: MouseEvent) => {
       timelineBodyElement.value.scrollTop = newScrollTop
 
       // 直接同步 TaskList 的滚动位置，避免通过事件触发
-      const taskListBody = document.querySelector('.task-list-body') as HTMLElement
+      const taskListBody = query('.task-list-body') as HTMLElement
       if (taskListBody) {
         taskListBody.scrollTop = newScrollTop
       }
@@ -5079,7 +5089,7 @@ const handleTimelineScroll = (event: Event) => {
   timelineScrollLeft.value = scrollLeft
 
   // 滚动时关闭所有右键菜单
-  window.dispatchEvent(new CustomEvent('close-all-taskbar-menus'))
+  ganttBus.dispatchEvent(new CustomEvent('close-all-taskbar-menus'))
 
   // 优化：滚动时失效 bodyRect 缓存（用于连接线拖拽）
   bodyRectInvalidated = true
@@ -5162,7 +5172,7 @@ const startAutoScroll = (direction: 'left' | 'right') => {
     timelineContainer.value.scrollLeft = newScrollLeft
 
     // 通知拖拽组件滚动已发生
-    window.dispatchEvent(
+    ganttBus.dispatchEvent(
       new CustomEvent('timeline-auto-scroll', {
         detail: { scrollDelta: newScrollLeft - currentScrollLeft },
       })
@@ -5262,22 +5272,25 @@ onUnmounted(() => {
   cleanupLinkDrag()
 
   // 清理事件监听器
-  window.removeEventListener('task-row-double-click', handleTaskListDoubleClick as EventListener)
-  window.removeEventListener('task-list-hover', handleTaskListHover as EventListener)
-  window.removeEventListener(
+  ganttBus.removeEventListener('task-row-double-click', handleTaskListDoubleClick as EventListener)
+  ganttBus.removeEventListener('task-list-hover', handleTaskListHover as EventListener)
+  ganttBus.removeEventListener(
     'task-list-vertical-scroll',
     handleTaskListVerticalScroll as EventListener
   )
   window.removeEventListener('locale-changed', handleLocaleChange as EventListener)
-  window.removeEventListener('splitter-drag-start', handleSplitterDragStart as EventListener)
-  window.removeEventListener('splitter-drag-end', handleSplitterDragEnd as EventListener)
-  window.removeEventListener(
+  ganttBus.removeEventListener('splitter-drag-start', handleSplitterDragStart as EventListener)
+  ganttBus.removeEventListener('splitter-drag-end', handleSplitterDragEnd as EventListener)
+  ganttBus.removeEventListener(
     'timeline-container-resized',
     handleTimelineContainerResized as EventListener
   )
-  window.removeEventListener('milestone-click-locate', handleMilestoneClickLocate as EventListener)
-  window.removeEventListener('drag-boundary-check', handleDragBoundaryCheck as EventListener)
-  window.removeEventListener('resource-taskbar-drop', handleResourceTaskBarDrop as EventListener)
+  ganttBus.removeEventListener(
+    'milestone-click-locate',
+    handleMilestoneClickLocate as EventListener
+  )
+  ganttBus.removeEventListener('drag-boundary-check', handleDragBoundaryCheck as EventListener)
+  ganttBus.removeEventListener('resource-taskbar-drop', handleResourceTaskBarDrop as EventListener)
 
   // 清理ResizeObserver
   if (resizeObserver) {
@@ -5644,8 +5657,8 @@ const handleMilestoneClickLocate = (event: CustomEvent) => {
   const { scrollLeft, smooth } = event.detail
 
   // 获取Timeline容器 - 尝试两个可能的滚动容器
-  const timelineMain = document.querySelector('.timeline') as HTMLElement
-  const timelineBody = document.querySelector('.timeline-body') as HTMLElement
+  const timelineMain = query('.timeline') as HTMLElement
+  const timelineBody = query('.timeline-body') as HTMLElement
 
   // 选择有滚动能力的容器
   let scrollContainer: HTMLElement | null = null

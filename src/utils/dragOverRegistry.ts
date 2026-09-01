@@ -6,37 +6,62 @@
  *
  * 改进后：改为单一全局监听器 + Map 直接查找（O(1)），
  * 监听器数量从 N 个（可见行数）降为 1 个。
+ *
+ * PATCH (viur): the registry is keyed by the event bus instead of being one global map. Task ids
+ * are running numbers per GanttChart instance, so two instances would otherwise overwrite each
+ * other's handlers under the same id. Callers pass the bus of their instance (see utils/ganttBus);
+ * one delegating listener per bus is kept, so the O(1) lookup is unchanged.
  */
 
 type DragOverCallback = (mouseEvent: MouseEvent) => void
 
-const _registry = new Map<number | string, DragOverCallback>()
-
-function _handleGlobalDragOver(e: Event) {
-  const { taskId, event: mouseEvent } = (e as CustomEvent).detail
-  const handler = _registry.get(taskId)
-  if (handler) handler(mouseEvent)
+interface BusRegistration {
+  handlers: Map<number | string, DragOverCallback>
+  listener: (e: Event) => void
 }
+
+// WeakMap: a bus belongs to a GanttChart instance and must not be kept alive by this module.
+const _byBus = new WeakMap<EventTarget, BusRegistration>()
 
 /**
  * 注册任务行的拖拽悬停回调。
- * 第一次注册时自动绑定全局 window 监听器。
+ * 第一次注册时自动绑定该 bus 上的委托监听器。
+ * @param bus - event bus of the surrounding GanttChart instance
+ * @param taskId - id of the task row
+ * @param handler - callback for the drag-over event
  */
-export function registerDragOver(taskId: number | string, handler: DragOverCallback): void {
-  const wasEmpty = _registry.size === 0
-  _registry.set(taskId, handler)
-  if (wasEmpty) {
-    window.addEventListener('task-row-drag-over', _handleGlobalDragOver)
+export function registerDragOver(
+  bus: EventTarget,
+  taskId: number | string,
+  handler: DragOverCallback
+): void {
+  let registration = _byBus.get(bus)
+  if (!registration) {
+    const handlers = new Map<number | string, DragOverCallback>()
+    const listener = (e: Event) => {
+      const { taskId: id, event: mouseEvent } = (e as CustomEvent).detail
+      const cb = handlers.get(id)
+      if (cb) cb(mouseEvent)
+    }
+    registration = { handlers, listener }
+    _byBus.set(bus, registration)
+    bus.addEventListener('task-row-drag-over', listener)
   }
+  registration.handlers.set(taskId, handler)
 }
 
 /**
  * 注销任务行的拖拽悬停回调。
- * 最后一个注销时自动解绑全局 window 监听器。
+ * 最后一个注销时自动解绑该 bus 上的委托监听器。
+ * @param bus - event bus of the surrounding GanttChart instance
+ * @param taskId - id of the task row
  */
-export function unregisterDragOver(taskId: number | string): void {
-  _registry.delete(taskId)
-  if (_registry.size === 0) {
-    window.removeEventListener('task-row-drag-over', _handleGlobalDragOver)
+export function unregisterDragOver(bus: EventTarget, taskId: number | string): void {
+  const registration = _byBus.get(bus)
+  if (!registration) return
+  registration.handlers.delete(taskId)
+  if (registration.handlers.size === 0) {
+    bus.removeEventListener('task-row-drag-over', registration.listener)
+    _byBus.delete(bus)
   }
 }

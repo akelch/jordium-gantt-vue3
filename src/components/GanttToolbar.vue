@@ -4,6 +4,11 @@ import { useI18n } from '../composables/useI18n'
 import type { ToolbarConfig } from '../models/configs/ToolbarConfig'
 import { TimelineScale } from '../models/types/TimelineScale'
 import '../styles/app.css'
+import { useGanttBus } from '../utils/ganttBus'
+
+// PATCH (viur): this instance's bus — the internal coordination events used to run on
+// `window`, so every other GanttChart instance on the page received them too.
+const ganttBus = useGanttBus()
 
 // 语言定义 - 使用多语言系统的类型
 type Language = 'zh' | 'en'
@@ -429,7 +434,7 @@ const handleFullscreenToggle = () => {
   isFullscreen.value = !isFullscreen.value
 
   // 触发全局事件，通知GanttChart组件切换全屏状态
-  window.dispatchEvent(
+  ganttBus.dispatchEvent(
     new CustomEvent('fullscreen-toggle', {
       detail: isFullscreen.value,
     })

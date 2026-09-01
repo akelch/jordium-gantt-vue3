@@ -21,6 +21,11 @@ import type { Task } from '../models/classes/Task'
 import type { ResourceTypeOption } from '../models/classes/Resource'
 import { createResource } from '../utils/resourceUtils'
 import '../styles/app.css'
+import { useGanttBus } from '../utils/ganttBus'
+
+// PATCH (viur): this instance's bus — the internal coordination events used to run on
+// `window`, so every other GanttChart instance on the page received them too.
+const ganttBus = useGanttBus()
 
 interface AssigneeOption {
   key?: string | number
@@ -428,7 +433,7 @@ watch(
         resetForm()
       }
       // 抽屉显示时重新请求任务数据，确保前置任务列表是最新的
-      window.dispatchEvent(new CustomEvent('request-task-list'))
+      ganttBus.dispatchEvent(new CustomEvent('request-task-list'))
     }
   }
 )
@@ -639,14 +644,14 @@ const handleTasksChanged = (event: CustomEvent) => {
 
 // 组件挂载时添加事件监听器
 onMounted(() => {
-  window.addEventListener('task-list-updated', handleTasksChanged as EventListener)
+  ganttBus.addEventListener('task-list-updated', handleTasksChanged as EventListener)
   // 请求初始任务数据
-  window.dispatchEvent(new CustomEvent('request-task-list'))
+  ganttBus.dispatchEvent(new CustomEvent('request-task-list'))
 })
 
 // 组件卸载时移除事件监听器
 onUnmounted(() => {
-  window.removeEventListener('task-list-updated', handleTasksChanged as EventListener)
+  ganttBus.removeEventListener('task-list-updated', handleTasksChanged as EventListener)
 })
 
 // 监听 formData.progress 变化，同步更新显示值

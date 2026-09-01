@@ -54,6 +54,16 @@ import { TimelineScale, SCALE_CONFIGS } from '../models/types/TimelineScale'
 import type { TimelineScaleConfig } from '../models/types/TimelineScale'
 import { detectConflicts } from '../utils/conflictUtils'
 import { useMessage } from '../composables/useMessage'
+import { provideGanttBus } from '../utils/ganttBus'
+import { provideGanttRoot, useGanttQuery } from '../utils/ganttScope'
+
+// PATCH (viur): element lookups scoped to this instance — document.querySelector would
+// return the first match on the page and thus another GanttChart instance's elements.
+const { query } = useGanttQuery()
+
+// PATCH (viur): this instance's bus — the internal coordination events used to run on
+// `window`, so every other GanttChart instance on the page received them too.
+const ganttBus = provideGanttBus()
 
 const props = withDefaults(defineProps<Props>(), {
   tasks: () => [],
@@ -187,6 +197,9 @@ const resolvedLinkConfig = computed(() => ({
 
 // 根元素引用
 const ganttRootRef = ref<HTMLElement>()
+// PATCH (viur): publish this instance's root as the lookup scope for the descendants —
+// see utils/ganttScope.
+provideGanttRoot(ganttRootRef)
 // TaskList 组件实例引用（用于读取 header scrollWidth 计算 maxWidth）
 const taskListComponentRef = ref<InstanceType<typeof TaskList> | null>(null)
 
@@ -1267,7 +1280,7 @@ function onMouseDown(e: MouseEvent) {
   const startWidth = leftPanelWidth.value
 
   // 获取task-list-body的宽度
-  const taskListBody = document.querySelector('.task-list-body')
+  const taskListBody = query('.task-list-body')
   if (!taskListBody) return
   const taskListBodyRect = taskListBody.getBoundingClientRect()
   taskListBodyWidth.value = taskListBodyRect.width
@@ -1282,7 +1295,7 @@ function onMouseDown(e: MouseEvent) {
   )
 
   // 广播拖拽开始事件，通知其他组件暂停悬停效果
-  window.dispatchEvent(new CustomEvent('splitter-drag-start'))
+  ganttBus.dispatchEvent(new CustomEvent('splitter-drag-start'))
 
   // 在拖拽期间禁用页面选择和所有指针事件
   document.body.style.userSelect = 'none'
@@ -1368,7 +1381,7 @@ function onMouseDown(e: MouseEvent) {
     document.removeEventListener('contextmenu', blockAllEvents, { capture: true })
 
     // 广播拖拽结束事件，通知其他组件恢复悬停效果
-    window.dispatchEvent(new CustomEvent('splitter-drag-end'))
+    ganttBus.dispatchEvent(new CustomEvent('splitter-drag-end'))
 
     // 恢复页面选择、光标和指针事件
     document.body.style.userSelect = ''
@@ -1458,7 +1471,7 @@ const toggleTaskList = () => {
     // 再通知 Timeline 重新计算半圆和 TaskBar 位置
     isTaskListToggling.value = false
     nextTick(() => {
-      window.dispatchEvent(
+      ganttBus.dispatchEvent(
         new CustomEvent('timeline-container-resized', {
           detail: { source: 'manual-task-list-toggle' },
         })
@@ -1477,7 +1490,7 @@ const handleToggleTaskList = (event: CustomEvent) => {
   // toggle 结束：清除标志后再派发事件，Timeline watch 响应时只更新 sticky/bubble
   nextTick(() => {
     isTaskListToggling.value = false
-    window.dispatchEvent(
+    ganttBus.dispatchEvent(
       new CustomEvent('timeline-container-resized', {
         detail: { source: 'task-list-toggle' },
       })
@@ -1510,9 +1523,9 @@ function handleMilestoneDragEnd(event: CustomEvent) {
 let resizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
-  window.addEventListener('taskbar-drag-end', handleTaskBarDragEnd as EventListener)
-  window.addEventListener('taskbar-resize-end', handleTaskBarResizeEnd as EventListener)
-  window.addEventListener('milestone-drag-end', handleMilestoneDragEnd as EventListener)
+  ganttBus.addEventListener('taskbar-drag-end', handleTaskBarDragEnd as EventListener)
+  ganttBus.addEventListener('taskbar-resize-end', handleTaskBarResizeEnd as EventListener)
+  ganttBus.addEventListener('milestone-drag-end', handleMilestoneDragEnd as EventListener)
 
   // 监听 timeline 容器宽度变化
   nextTick(() => {
@@ -1522,7 +1535,7 @@ onMounted(() => {
     //      → 不会误触发日期范围重算
     //   2. 窗口 resize / 全屏切换才改变 .gantt-body 宽度 → 正确触发重算
     //   3. 作为「最大可能宽度」兜底：TaskList 隐藏时 Timeline 最大可展开至此宽度
-    const ganttBody = document.querySelector('.gantt-body')
+    const ganttBody = query('.gantt-body')
     if (ganttBody) {
       // 初始化宽度
       timelineContainerWidth.value = ganttBody.clientWidth
@@ -1539,9 +1552,9 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  window.removeEventListener('taskbar-drag-end', handleTaskBarDragEnd as EventListener)
-  window.removeEventListener('taskbar-resize-end', handleTaskBarResizeEnd as EventListener)
-  window.removeEventListener('milestone-drag-end', handleMilestoneDragEnd as EventListener)
+  ganttBus.removeEventListener('taskbar-drag-end', handleTaskBarDragEnd as EventListener)
+  ganttBus.removeEventListener('taskbar-resize-end', handleTaskBarResizeEnd as EventListener)
+  ganttBus.removeEventListener('milestone-drag-end', handleMilestoneDragEnd as EventListener)
 
   // 清理 ResizeObserver
   if (resizeObserver) {
@@ -1632,7 +1645,7 @@ const handleTaskRowMoved = (payload: {
 
   // 通知 TaskList 更新父级任务数据
   nextTick(() => {
-    window.dispatchEvent(
+    ganttBus.dispatchEvent(
       new CustomEvent('task-updated', {
         detail: result.movedTask,
       })
@@ -1782,7 +1795,7 @@ const handleRequestTaskList = () => {
   }
 
   // 发送任务列表给TaskDrawer
-  window.dispatchEvent(new CustomEvent('task-list-updated', { detail: flatTasks }))
+  ganttBus.dispatchEvent(new CustomEvent('task-list-updated', { detail: flatTasks }))
 }
 
 // 当任务数据变化时，通知TaskDrawer更新
@@ -1806,18 +1819,18 @@ onMounted(() => {
   // 监听Timeline的TaskList切换事件
   window.addEventListener('toggle-task-list', handleToggleTaskList as EventListener)
   // 监听GanttToolbar的全屏切换事件
-  window.addEventListener('fullscreen-toggle', handleFullscreenToggle as EventListener)
+  ganttBus.addEventListener('fullscreen-toggle', handleFullscreenToggle as EventListener)
   // 监听Timeline的里程碑相关事件
   window.addEventListener('milestone-icon-changed', handleMilestoneIconChangeEvent as EventListener)
   // 监听里程碑删除和数据变化事件
   window.addEventListener('milestone-deleted', handleMilestoneDeleted as EventListener)
   window.addEventListener('milestone-data-changed', handleMilestoneDataChanged as EventListener)
   // 监听TaskDrawer的任务列表请求
-  window.addEventListener('request-task-list', handleRequestTaskList as EventListener)
+  ganttBus.addEventListener('request-task-list', handleRequestTaskList as EventListener)
   // 监听窗口大小变化
   window.addEventListener('resize', handleWindowResize)
   // 监听TaskBar的右键菜单事件
-  window.addEventListener('context-menu', handleTaskContextMenu as EventListener)
+  ganttBus.addEventListener('context-menu', handleTaskContextMenu as EventListener)
 
   nextTick(() => {
     if (timelineRef.value && typeof timelineRef.value.scrollToTodayCenter === 'function') {
@@ -1830,16 +1843,16 @@ onUnmounted(() => {
   dragging.value = false
   // 移除事件监听器
   window.removeEventListener('toggle-task-list', handleToggleTaskList as EventListener)
-  window.removeEventListener('fullscreen-toggle', handleFullscreenToggle as EventListener)
+  ganttBus.removeEventListener('fullscreen-toggle', handleFullscreenToggle as EventListener)
   window.removeEventListener(
     'milestone-icon-changed',
     handleMilestoneIconChangeEvent as EventListener
   )
   window.removeEventListener('milestone-deleted', handleMilestoneDeleted as EventListener)
   window.removeEventListener('milestone-data-changed', handleMilestoneDataChanged as EventListener)
-  window.removeEventListener('request-task-list', handleRequestTaskList as EventListener)
+  ganttBus.removeEventListener('request-task-list', handleRequestTaskList as EventListener)
   window.removeEventListener('resize', handleWindowResize)
-  window.removeEventListener('context-menu', handleTaskContextMenu as EventListener)
+  ganttBus.removeEventListener('context-menu', handleTaskContextMenu as EventListener)
 })
 
 // 主题状态管理（已在上面provide部分定义）
@@ -2921,7 +2934,7 @@ const pdfExportHandler = async () => {
     document.body.appendChild(loadingEl)
 
     // 获取甘特图容器元素
-    const ganttElement = document.querySelector('.gantt-body') as HTMLElement
+    const ganttElement = query('.gantt-body') as HTMLElement
     if (!ganttElement) {
       throw new Error('找不到甘特图元素')
     }
@@ -3060,7 +3073,7 @@ const handleFullscreenToggle = (event: CustomEvent) => {
   // 全屏切换会改变Timeline容器宽度，需要通知Timeline重新计算TaskBar位置和关系线
   // 延迟到动画完成后（全屏动画需要 300ms），确保容器尺寸已经稳定
   setTimeout(() => {
-    window.dispatchEvent(
+    ganttBus.dispatchEvent(
       new CustomEvent('timeline-container-resized', {
         detail: { source: 'fullscreen-toggle' },
       })
@@ -3079,7 +3092,7 @@ const enterFullscreen = () => {
       props.onFullscreenChange(true)
     }
     setTimeout(() => {
-      window.dispatchEvent(
+      ganttBus.dispatchEvent(
         new CustomEvent('timeline-container-resized', {
           detail: { source: 'fullscreen-toggle' },
         })
@@ -3098,7 +3111,7 @@ const exitFullscreen = () => {
       props.onFullscreenChange(false)
     }
     setTimeout(() => {
-      window.dispatchEvent(
+      ganttBus.dispatchEvent(
         new CustomEvent('timeline-container-resized', {
           detail: { source: 'fullscreen-toggle' },
         })
@@ -3303,7 +3316,7 @@ const defaultTodayLocate = () => {
   totalDays += currentDay
 
   // 计算滚动位置（每个日期30px宽度）
-  const timelinePanel = document.querySelector('.gantt-panel-right')
+  const timelinePanel = query('.gantt-panel-right')
   const timelinePanelW = timelinePanel?.clientWidth
   const offset = timelinePanelW ? timelinePanelW / 2 : 200 // 偏移量让今天居中显示
   const scrollPosition = (totalDays - 1) * 30 - offset

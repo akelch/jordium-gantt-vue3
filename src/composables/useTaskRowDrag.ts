@@ -1,5 +1,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import type { Task } from '../models/classes/Task'
+import { useGanttBus } from '../utils/ganttBus'
+import { useGanttQuery } from '../utils/ganttScope'
 
 interface DragState {
   isDragging: boolean
@@ -22,6 +24,11 @@ interface UseDragOptions {
 }
 
 export function useTaskRowDrag(options: UseDragOptions) {
+  // PATCH (viur): this instance's bus instead of `window` — see utils/ganttBus.
+  const ganttBus = useGanttBus()
+  // PATCH (viur): element lookups scoped to this instance — document.querySelector would
+  // return the first match on the page and thus another GanttChart instance's elements.
+  const { queryAll } = useGanttQuery()
   const DRAG_THRESHOLD = options.dragThreshold ?? 5 // 默认5px触发拖拽
 
   const dragState = ref<DragState>({
@@ -143,7 +150,7 @@ export function useTaskRowDrag(options: UseDragOptions) {
     dragState.value.dropPosition = position
 
     // 移除之前的高亮
-    document.querySelectorAll('.task-row-drop-target').forEach(el => {
+    queryAll('.task-row-drop-target').forEach(el => {
       el.classList.remove('task-row-drop-target', 'drop-after', 'drop-child')
     })
 
@@ -163,7 +170,7 @@ export function useTaskRowDrag(options: UseDragOptions) {
   const clearDropTarget = () => {
     dragState.value.dropTargetTask = null
     dragState.value.dropPosition = null
-    document.querySelectorAll('.task-row-drop-target').forEach(el => {
+    queryAll('.task-row-drop-target').forEach(el => {
       el.classList.remove('task-row-drop-target', 'drop-after', 'drop-child')
     })
   }
@@ -261,7 +268,7 @@ export function useTaskRowDrag(options: UseDragOptions) {
           const taskId = Number(taskRow.dataset.taskId)
 
           // 触发全局事件，让TaskRow组件处理
-          window.dispatchEvent(
+          ganttBus.dispatchEvent(
             new CustomEvent('task-row-drag-over', {
               detail: { taskId, event },
             }),

@@ -1,5 +1,6 @@
 import { ref, computed, watch, onMounted, onUnmounted, type Ref, type WatchStopHandle } from 'vue'
 import type { Task } from '../../../../models/classes/Task'
+import { useGanttBus } from '../../../../utils/ganttBus'
 
 /**
  * TaskRow 右键菜单和计时器管理
@@ -12,6 +13,9 @@ export function useTaskRowContextMenu(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   defaultMenuRef?: Ref<{ menuRef: HTMLElement | null } | null>
 ) {
+  // PATCH (viur): this instance's bus instead of `window` — see utils/ganttBus.
+  const ganttBus = useGanttBus()
+
   // 右键菜单相关状态
   const contextMenuVisible = ref(false)
   const contextMenuPosition = ref({ x: 0, y: 0 })
@@ -80,7 +84,7 @@ export function useTaskRowContextMenu(
   // 处理右键菜单显示
   const handleContextMenu = (event: MouseEvent) => {
     // 先广播关闭所有TaskRow菜单
-    window.dispatchEvent(new CustomEvent('close-all-taskbar-menus'))
+    ganttBus.dispatchEvent(new CustomEvent('close-all-taskbar-menus'))
     const taskType = task.value.type || 'task'
     if (taskType !== 'task' && taskType !== 'story') {
       // 为了排除里程碑类型
@@ -120,12 +124,12 @@ export function useTaskRowContextMenu(
 
   // 生命周期钩子 - 注册事件监听器
   onMounted(() => {
-    window.addEventListener('close-all-taskbar-menus', closeContextMenu)
+    ganttBus.addEventListener('close-all-taskbar-menus', closeContextMenu)
     document.addEventListener('click', handleDocumentClick)
   })
 
   onUnmounted(() => {
-    window.removeEventListener('close-all-taskbar-menus', closeContextMenu)
+    ganttBus.removeEventListener('close-all-taskbar-menus', closeContextMenu)
     document.removeEventListener('click', handleDocumentClick)
     // 清理定时器和watch
     if (timerInterval.value) {

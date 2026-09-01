@@ -135,6 +135,11 @@ import { parseWidthValue } from '../../models/configs/TaskListConfig'
 import { SCALE_CONFIGS } from '../../models/types/TimelineScale'
 import type { TimelineScale, TimelineScaleConfig } from '../../models/types/TimelineScale'
 import { applyTimelineFormat } from '../../utils/timelineFormat'
+import { useGanttBus } from '../../utils/ganttBus'
+
+// PATCH (viur): this instance's bus — the internal coordination events used to run on
+// `window`, so every other GanttChart instance on the page received them too.
+const ganttBus = useGanttBus()
 
 interface Props {
   resources: Resource[]
@@ -502,7 +507,7 @@ const onSplitterMouseUp = () => {
   document.removeEventListener('mousemove', onSplitterMouseMove)
   document.removeEventListener('mouseup', onSplitterMouseUp)
   // 通知内嵌 TaskList 拖拽结束，触发其容器宽度重新测量（对齐 GanttChart 的 splitter 行为）
-  window.dispatchEvent(new CustomEvent('splitter-drag-end'))
+  ganttBus.dispatchEvent(new CustomEvent('splitter-drag-end'))
 }
 
 const onSplitterMouseDown = (e: MouseEvent) => {
@@ -511,7 +516,7 @@ const onSplitterMouseDown = (e: MouseEvent) => {
   document.addEventListener('mousemove', onSplitterMouseMove)
   document.addEventListener('mouseup', onSplitterMouseUp)
   // 通知内嵌 TaskList 拖拽开始，暂停其悬停高亮等交互（对齐 GanttChart 的 splitter 行为）
-  window.dispatchEvent(new CustomEvent('splitter-drag-start'))
+  ganttBus.dispatchEvent(new CustomEvent('splitter-drag-start'))
   e.preventDefault()
 }
 
@@ -608,12 +613,12 @@ const handleTaskListHoverEvent = (e: Event) => {
 
 const handleGridRowMouseEnter = (resourceId: string | number) => {
   hoveredResourceId.value = resourceId
-  window.dispatchEvent(new CustomEvent('timeline-task-hover', { detail: resourceId }))
+  ganttBus.dispatchEvent(new CustomEvent('timeline-task-hover', { detail: resourceId }))
 }
 
 const handleGridRowMouseLeave = () => {
   hoveredResourceId.value = null
-  window.dispatchEvent(new CustomEvent('timeline-task-hover', { detail: null }))
+  ganttBus.dispatchEvent(new CustomEvent('timeline-task-hover', { detail: null }))
 }
 
 const onGridScroll = (e: Event) => {
@@ -621,7 +626,7 @@ const onGridScroll = (e: Event) => {
   rowScrollTop.value = target.scrollTop
   gridScrollLeft.value = target.scrollLeft
   if (isSyncingScrollFromTaskList) return
-  window.dispatchEvent(
+  ganttBus.dispatchEvent(
     new CustomEvent('timeline-vertical-scroll', { detail: { scrollTop: target.scrollTop } })
   )
 }
@@ -630,11 +635,11 @@ let resizeObserver: ResizeObserver | null = null
 let rootResizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
-  window.addEventListener(
+  ganttBus.addEventListener(
     'task-list-vertical-scroll',
     handleTaskListVerticalScroll as EventListener
   )
-  window.addEventListener('task-list-hover', handleTaskListHoverEvent as EventListener)
+  ganttBus.addEventListener('task-list-hover', handleTaskListHoverEvent as EventListener)
 
   nextTick(() => {
     if (gridScrollRef.value) {
@@ -665,11 +670,11 @@ onUnmounted(() => {
   rootResizeObserver?.disconnect()
   document.removeEventListener('mousemove', onSplitterMouseMove)
   document.removeEventListener('mouseup', onSplitterMouseUp)
-  window.removeEventListener(
+  ganttBus.removeEventListener(
     'task-list-vertical-scroll',
     handleTaskListVerticalScroll as EventListener
   )
-  window.removeEventListener('task-list-hover', handleTaskListHoverEvent as EventListener)
+  ganttBus.removeEventListener('task-list-hover', handleTaskListHoverEvent as EventListener)
 })
 
 defineExpose({ refreshAggregation, setScale })

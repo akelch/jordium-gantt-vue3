@@ -1,6 +1,7 @@
 import { onMounted, onUnmounted, type Ref } from 'vue'
 import type { Task } from '../../../../models/classes/Task'
 import { registerDragOver, unregisterDragOver } from '../../../../utils/dragOverRegistry'
+import { useGanttBus } from '../../../../utils/ganttBus'
 
 /**
  * TaskRow 事件处理和拖拽交互
@@ -20,6 +21,9 @@ export function useTaskRowEventHandlers(
   dragStart?: (task: Task, element: HTMLElement, event: MouseEvent) => void,
   dragOver?: (task: Task, element: HTMLElement, event: MouseEvent) => void,
 ) {
+  // PATCH (viur): this instance's bus instead of `window` — see utils/ganttBus.
+  const ganttBus = useGanttBus()
+
   // 处理折叠/展开
   const handleToggle = () => {
     if (emit) {
@@ -108,16 +112,16 @@ export function useTaskRowEventHandlers(
 
   // 生命周期钩子 - 注册事件监听器
   onMounted(() => {
-    window.addEventListener('splitter-drag-start', handleSplitterDragStart)
-    window.addEventListener('splitter-drag-end', handleSplitterDragEnd)
+    ganttBus.addEventListener('splitter-drag-start', handleSplitterDragStart)
+    ganttBus.addEventListener('splitter-drag-end', handleSplitterDragEnd)
     // 使用 dragOverRegistry 委托注册，避免每个 TaskRow 各自占用一个 window 监听器
-    registerDragOver(task.value.id, handleTaskRowDragOver)
+    registerDragOver(ganttBus, task.value.id, handleTaskRowDragOver)
   })
 
   onUnmounted(() => {
-    window.removeEventListener('splitter-drag-start', handleSplitterDragStart)
-    window.removeEventListener('splitter-drag-end', handleSplitterDragEnd)
-    unregisterDragOver(task.value.id)
+    ganttBus.removeEventListener('splitter-drag-start', handleSplitterDragStart)
+    ganttBus.removeEventListener('splitter-drag-end', handleSplitterDragEnd)
+    unregisterDragOver(ganttBus, task.value.id)
   })
 
   return {

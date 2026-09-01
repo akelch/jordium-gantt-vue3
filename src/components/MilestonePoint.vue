@@ -13,6 +13,16 @@ import type {
 } from '../models/types/TimelineDataTypes'
 import { createLocalDate } from '../utils/predecessorUtils'
 import { useI18n } from '../composables/useI18n'
+import { useGanttBus } from '../utils/ganttBus'
+import { useGanttQuery } from '../utils/ganttScope'
+
+// PATCH (viur): element lookups scoped to this instance — document.querySelector would
+// return the first match on the page and thus another GanttChart instance's elements.
+const { query } = useGanttQuery()
+
+// PATCH (viur): this instance's bus — the internal coordination events used to run on
+// `window`, so every other GanttChart instance on the page received them too.
+const ganttBus = useGanttBus()
 
 const { t } = useI18n()
 const props = defineProps<Props>()
@@ -273,7 +283,7 @@ const handleMouseDown = (e: MouseEvent) => {
   e.stopPropagation()
 
   // 获取当前里程碑相对位置
-  const timelineContainer = document.querySelector('.timeline') as HTMLElement
+  const timelineContainer = query('.timeline') as HTMLElement
   if (!timelineContainer) return
 
   // 设置拖拽状态，但不立即开始拖拽
@@ -282,7 +292,7 @@ const handleMouseDown = (e: MouseEvent) => {
   tempMilestoneData.value = null
 
   // 监听自动滚动事件
-  window.addEventListener('timeline-auto-scroll', handleAutoScroll as EventListener)
+  ganttBus.addEventListener('timeline-auto-scroll', handleAutoScroll as EventListener)
 
   // 添加全局事件监听器
   document.addEventListener('mousemove', handleMouseMove)
@@ -301,7 +311,7 @@ const handleAutoScroll = (event: CustomEvent) => {
 
 const handleMouseMove = (e: MouseEvent) => {
   // 发送边界检测事件给Timeline
-  window.dispatchEvent(
+  ganttBus.dispatchEvent(
     new CustomEvent('drag-boundary-check', {
       detail: {
         mouseX: e.clientX,
@@ -364,7 +374,7 @@ const handleMouseMove = (e: MouseEvent) => {
 
 const handleMouseUp = () => {
   // 停止边界检测
-  window.dispatchEvent(
+  ganttBus.dispatchEvent(
     new CustomEvent('drag-boundary-check', {
       detail: {
         mouseX: 0,
@@ -384,7 +394,7 @@ const handleMouseUp = () => {
   }
 
   // 清理自动滚动监听器
-  window.removeEventListener('timeline-auto-scroll', handleAutoScroll as EventListener)
+  ganttBus.removeEventListener('timeline-auto-scroll', handleAutoScroll as EventListener)
 
   // 重置所有拖拽状态
   isDragging.value = false
@@ -426,7 +436,7 @@ const handleMilestoneClick = (e: MouseEvent) => {
     const targetScrollLeft = Math.max(0, milestoneLeft - containerWidth / 2)
 
     // 发送滚动定位事件
-    window.dispatchEvent(
+    ganttBus.dispatchEvent(
       new CustomEvent('milestone-click-locate', {
         detail: {
           scrollLeft: targetScrollLeft,
