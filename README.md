@@ -69,6 +69,12 @@
   </p>
 </div>
 
+<div style="background-color: #fff0f0; padding: 10px 10px 2px 10px; border: 1px solid #ffccc7">
+  <p>
+    <b style="color:red">⚠️ Important Notice (Read Before Upgrading): </b>If you are upgrading to <b>v1.13.5</b> or later, the semantics of the <code>type</code> field on the <code>Resource</code> interface have changed (free text → resource category Human/Device/Others). Any job-title/role text previously stored in <code>type</code> will NOT be migrated automatically — please migrate it to the new <code>title</code> field before upgrading, otherwise the "title" column will be empty and the "category" column will show unexpected text. See the Breaking Change note in the <a href="#resource-data-structure">Resource Data Structure</a> section for details.
+  </p>
+</div>
+
 ---
 
 ## ✨ Introduction
@@ -127,7 +133,8 @@ Import the `GanttChart` component and styles:
 ```vue
 <script setup lang="ts">
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css' // Scheduled for deprecation
+import 'jordium-gantt-vue3/index.css' // Recommended
 </script>
 ```
 
@@ -147,7 +154,7 @@ Create your first Gantt chart:
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const tasks = ref([
   {
@@ -186,8 +193,8 @@ const milestones = ref([
 </script>
 ```
 
-🎯 **[Try Live Demo on Github →](https://nelson820125.github.io/jordium-gantt-vue3/)**
-<span><strong>Recommended: <a href="https://dovee.cc/a.php?anaxjgyz1ozZq2B">DOVE</a> VPN for fast and stable access.</strong></span> <span style="color:red;">(Note: Please use VPN services legally)</span>
+<!-- 🎯 **[Try Live Demo on Github →](https://nelson820125.github.io/jordium-gantt-vue3/)**
+<span><strong>Recommended: <a href="https://dovee.cc/a.php?anaxjgyz1ozZq2B">DOVE</a> VPN for fast and stable access.</strong></span> <span style="color:red;">(Note: Please use VPN services legally)</span> -->
 
 ## 🌞 NPM Package Usage Example
 
@@ -217,7 +224,10 @@ npm run dev
 | `tasks`                     | `Task[]`  | `[]`    | Array of task data                                                        |
 | `milestones`                | `Task[]`  | `[]`    | Array of milestone data (Note: Type is Task[], must set type='milestone') |
 | `resources` ![v1.9.0](https://img.shields.io/badge/v1.9.0-409EFF?style=flat-square&labelColor=ECF5FF) | `Resource[]` | `[]` | Array of resource data (used in resource planning view) |
-| `viewMode` ![v1.9.0](https://img.shields.io/badge/v1.9.0-409EFF?style=flat-square&labelColor=ECF5FF) | `'task' \| 'resource'` | `'task'` | View mode: 'task' for task planning view \| 'resource' for resource planning view |
+| `viewMode` ![v1.9.0](https://img.shields.io/badge/v1.9.0-409EFF?style=flat-square&labelColor=ECF5FF) | `'task' \| 'resource' \| 'calendar' \| 'resource-usage'` | `'task'` | View mode: 'task' for task planning view \| 'resource' for resource planning view \| 'calendar' for calendar view ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) \| 'resource-usage' for resource-usage view ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) |
+| `availableViewModes` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `Array<'task' \| 'resource' \| 'calendar' \| 'resource-usage'>` | `['task', 'resource']` | View mode buttons actually displayed on the toolbar; defaults to task/resource only (backward-compatible with pre-upgrade behavior). Add `'calendar'` / `'resource-usage'` to enable calendar or resource-usage views |
+| `calendarProps` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `Partial<CalendarView props>` | `undefined` | Props forwarded to the internal `CalendarView` component when `viewMode='calendar'` (e.g. `taskCardOpacity`, `allDayLabel`, etc.). See [CalendarView Component](#calendarview-component) for the full list and [CalendarView Configuration (calendarProps)](#calendarview-configuration-calendarprops-) for forwarding details |
+| `resourceUsageProps` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `Partial<ResourceUsageView props>` | `undefined` | Props forwarded to the internal `ResourceUsageView` component when `viewMode='resource-usage'` (e.g. `overloadColor`, `columnRenderMode`, etc.). See [ResourceUsageView Component](#resourceusageview-component-) for the full list and [ResourceUsageView Configuration (resourceUsageProps)](#resourceusageview-configuration-resourceusageprops-) for forwarding details |
 | `showToolbar`               | `boolean` | `true`  | Whether to show the toolbar                                               |
 | `useDefaultDrawer`          | `boolean` | `true`  | Whether to use the built-in task edit drawer (TaskDrawer)                 |
 | `useDefaultMilestoneDialog` | `boolean` | `true`  | Whether to use the built-in milestone edit dialog (MilestoneDialog)       |
@@ -226,7 +236,9 @@ npm run dev
 | `enableTaskRowMove`         | `boolean`                                                                             | `false` | Whether to allow dragging and dropping TaskRow                            |
 | `enableTaskListContextMenu` | `boolean`                                                                             | `true`  | Whether to enable TaskList (TaskRow) context menu. When `true`: uses built-in menu if `task-list-context-menu` slot is not declared, uses custom menu if slot is declared; when `false`: context menu is completely disabled           |
 | `enableTaskBarContextMenu`  | `boolean`                                                                             | `true`  | Whether to enable TaskBar context menu. When `true`: uses built-in menu if `task-bar-context-menu` slot is not declared, uses custom menu if slot is declared; when `false`: context menu is completely disabled                      |
-| `assigneeOptions`           | `Array<{ key?: string \| number; value: string \| number; label: string }>`          | `[]`    | Assignee dropdown options in task edit drawer          |
+| `assigneeOptions`           | `Array<{ key?: string \| number; value: string \| number; label: string; avatar?: string; type?: string ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) }>`          | `[]`    | Assignee dropdown options in task edit drawer. `type` is an optional resource category (Human/Device/Others); selecting a resource auto-fills the category field on the bound resource row          |
+| `resourceTypeOptions` ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) | `ResourceTypeOption[]` (`{ value: string; label: string }`) | `[]` | Custom option set for the "category" dropdown in the TaskDrawer resource allocation row. When not set or an empty array is passed, falls back to the built-in Human/Device/Others options. `label` is fully controlled externally, enabling custom categories or i18n. See the "Custom Resource Categories" example below |
+| `showResourceTypeOption` ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean` | `true` | Whether to show the "category" dropdown in the TaskDrawer resource allocation row. Set to `false` to fully hide this column (still defaults to `'Human'` internally for `resource.type`, no impact on the underlying data) |
 | `locale` ![v1.7.1](https://img.shields.io/badge/v1.7.1-409EFF?style=flat-square&labelColor=ECF5FF) | `'zh-CN' \| 'en-US'`                                                                      | `'zh-CN'` | Language setting (reactive). Component's internal language will follow changes                |
 | `theme` ![v1.7.1](https://img.shields.io/badge/v1.7.1-409EFF?style=flat-square&labelColor=ECF5FF) | `'light' \| 'dark'`                                                                       | `'light'` | Theme mode (reactive). Component's theme will follow changes                    |
 | `timeScale` ![v1.7.1](https://img.shields.io/badge/v1.7.1-409EFF?style=flat-square&labelColor=ECF5FF) | `'hour' \| 'day' \| 'week' \| 'month' \| 'quarter' \| 'year'`                             | `'week'` | Time scale (reactive). Timeline scale will follow changes                  |
@@ -240,6 +252,7 @@ npm run dev
 | `showActualTaskbar` ![v1.8.0](https://img.shields.io/badge/v1.8.0-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean`                                                                                 | `false` | Whether to display actual TaskBar (shows actual execution progress below planned TaskBar)  |
 | `enableTaskbarTooltip` ![v1.8.0](https://img.shields.io/badge/v1.8.0-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean`                                                                                 | `true` | Whether to enable TaskBar hover tooltip (shows task details on mouse hover)  |
 | `enableMilestoneTooltip` ![v1.10.2](https://img.shields.io/badge/v1.10.2-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean`                                                                                 | `true` | Whether to enable milestone hover tooltip (shows milestone name and date on mouse hover)  |
+| `milestoneLabelPosition` ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) | `'left' \| 'top' \| 'right' \| 'bottom'` | `'right'` | Milestone label position relative to the icon (or custom `custom-milestone-content` slot content). Default matches the previous hardcoded behavior |
 | `showConflicts` ![v1.9.0](https://img.shields.io/badge/v1.9.0-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean`                                                                                 | `true` | Whether to display resource conflict visualization layer (shows diagonal stripe background for overload zones in resource view) |
 | `showTaskbarTab` ![v1.9.0](https://img.shields.io/badge/v1.9.0-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean`                                                                                 | `true` | Whether to display resource tab on TaskBar (shows resource allocation label on TaskBar in resource view) |
 | `enableTaskListCollapsible` ![v1.9.2](https://img.shields.io/badge/v1.9.2-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean`                                                                                 | `true` | Whether to allow collapsing/expanding the TaskList panel. When `false`: forcibly hides TaskList, SplitterBar and collapse button; Timeline takes full width |
@@ -247,6 +260,9 @@ npm run dev
 | `enableTaskDrawerAutoClose` ![v1.9.3](https://img.shields.io/badge/v1.9.3-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean`                                                                                 | `true` | Whether to allow TaskDrawer to auto-close (closes on outside click or Esc key). Set to `false` to disable auto-close — the drawer can only be closed via its internal close button |
 | `rowHeight` ![v1.11.4](https://img.shields.io/badge/v1.11.4-409EFF?style=flat-square&labelColor=ECF5FF) | `number` | `51` | Row height (px) shared by both Timeline and TaskList. Valid range: `30`–`60`. Values below 30 are clamped to 30, values above 60 are clamped to 60. When set below 40, TaskBar content (name + progress) automatically switches to a compact horizontal layout to fit the smaller row |
 | `enableParentTaskAutoSchedule` ![v1.11.5](https://img.shields.io/badge/v1.11.5-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean` | `true` | Whether to enable auto-scheduling for parent tasks. `true`: parent task's TaskBar time window automatically stretches to span the earliest start and latest end of its children. `false`: parent task displays its own configured date range; a red indicator line appears above its TaskBar when children overflow the configured bounds |
+| `enableResourceLaneStacking` ![v1.12.0](https://img.shields.io/badge/v1.12.0-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean` | `true` | Resource view lane stacking mode. `true`: greedy lane packing — non-overlapping tasks share the same row, maximizing space efficiency. `false`: each task occupies its own row, ideal for dense schedules where individual task readability matters |
+| `linkConfig` ![v1.12.1](https://img.shields.io/badge/v1.12.1-409EFF?style=flat-square&labelColor=ECF5FF) | `LinkConfig` | `undefined` | Link line style configuration. Supports switching line type (bezier/straight/orthogonal), customizing colors, line width, and dotted/solid style. See [LinkConfig Configuration](#linkconfig-configuration) |
+| `taskbarDescFixed` ![v1.13.4](https://img.shields.io/badge/v1.13.4-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean` | `false` | Whether the Taskbar content follows the horizontal scrolling of the Timeline. `false`: The Taskbar content, including the title, progress, and avatar information, moves horizontally with the Timeline. When approaching the left or right boundary of the Timeline, the content will be automatically pinned with a snapping effect. `true`: The Taskbar content, including the title, progress, and avatar information, remains fixed at the center of the Taskbar. When approaching the left or right boundary of the Timeline, no snapping effect will be applied. |
 
 #### TaskListColumn Component Props
 
@@ -259,6 +275,7 @@ The `TaskListColumn` component is used to define task list columns in declarativ
 | `width`    | `number \| string`             | -        | Column width. Number represents pixels (e.g., `200`), string supports percentage (e.g., `'20%'`)                                                 |
 | `align`    | `'left' \| 'center' \| 'right'` | `'left'` | Column content alignment                                                                                                                         |
 | `cssClass` | `string`                       | -        | Custom CSS class name for column styling                                                                                                         |
+| `fixed` ![v1.12.1](https://img.shields.io/badge/v1.12.1-409EFF?style=flat-square&labelColor=ECF5FF) | `'left' \| 'right' \| boolean` | - | Column pinning. `'left'`: column auto-reorders to far left and sticks; `'right'`: column sticks to far right. `true` is equivalent to `'left'` |
 
 **Usage Example**:
 
@@ -275,10 +292,36 @@ The `TaskListColumn` component is used to define task list columns in declarativ
 </GanttChart>
 ```
 
+**Fixed Columns Example** (`fixed` prop):
+
+```vue
+<GanttChart 
+  :tasks="tasks" 
+  task-list-column-render-mode="declarative"
+>
+  <!-- First column (name) always sticky at left:0 -->
+  <TaskListColumn prop="name" label="Task Name" width="300" />
+
+  <!-- fixed="left": reorders to the right of name column and sticks -->
+  <TaskListColumn prop="assignee" label="Assignee" width="150" fixed="left" />
+
+  <!-- fixed (no value): equivalent to fixed="left" -->
+  <TaskListColumn prop="predecessor" label="Predecessor" width="120" fixed />
+
+  <!-- Normal columns: scroll with the table -->
+  <TaskListColumn prop="startDate" label="Start Date" width="140" />
+  <TaskListColumn prop="endDate" label="End Date" width="140" />
+
+  <!-- fixed="right": sticks to the far right -->
+  <TaskListColumn prop="progress" label="Progress" width="100" fixed="right" />
+</GanttChart>
+```
+
 > **💡 Tips**:
 > - The `TaskListColumn` component itself does not render any content, it only declares column configuration
 > - Must be used inside the `GanttChart` component with `task-list-column-render-mode="declarative"` set
-> - Column display order is determined by the declaration order of `TaskListColumn` components
+> - Column display order is determined by the declaration order of `TaskListColumn` components, but `fixed` columns are auto-reordered: `fixed='left'` to the far left, `fixed='right'` to the far right
+> - Using `fixed` without a value (e.g. `<TaskListColumn fixed />`) is equivalent to `fixed="left"`
 > - For detailed column content customization and slot usage, see [Slots](#slots) section
 
 #### TaskListContextMenu Component Props
@@ -418,6 +461,8 @@ For complete event documentation, see:
 
 - **Task-related events**: See [Task Management](#task-management) section below
 - **Milestone-related events**: See [Milestone Management](#milestone-management) section below
+- **Calendar view events** ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF): See [CalendarView Component](#calendarview-component) section below
+- **Resource-usage view events** ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF): See [ResourceUsageView Component](#resourceusageview-component-) section below
 
 **Event List Overview:**
 
@@ -442,6 +487,20 @@ For complete event documentation, see:
 | `milestone-drag-end`     | `(milestone: Task)`               | Milestone drag ended                   |
 | `task-row-moved`     | `payload: { draggedTask: Task, targetTask: Task, position: 'after' \| 'child', oldParent: Task \| null, newParent: Task \| null }` | TaskRow drag ended (optional) |
 | `taskbar-resource-change` ![v1.9.0](https://img.shields.io/badge/v1.9.0-409EFF?style=flat-square&labelColor=ECF5FF) | `payload: { task: Task, oldResourceId: string \| number, newResourceId: string \| number }` | Task moved across resources (dragging task to another resource row in resource view) |
+| `view-mode-changed` ![v1.9.0](https://img.shields.io/badge/v1.9.0-409EFF?style=flat-square&labelColor=ECF5FF) | `(mode: 'task' \| 'resource' \| 'calendar' \| 'resource-usage')` | Triggered after view mode switch (via toolbar button click or `viewMode` property change) |
+| `resource-drag-end` ![v1.9.0](https://img.shields.io/badge/v1.9.0-409EFF?style=flat-square&labelColor=ECF5FF) | `(task: Task)` | Triggered after vertical task drag ends in resource view |
+| `calendar-selection-complete` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `CalendarSelectionRange` | Triggered after calendar view drag selection is confirmed (forwarded from `CalendarView`'s `selection-complete`) |
+| `calendar-selection-cancel` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `{ reason }` | Triggered when calendar view drag selection is cancelled |
+| `calendar-resource-change` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `{ next, prev }` | Triggered after selected resource changes in calendar view |
+| `calendar-view-change` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `{ next, prev }` | Triggered after day/week/month switch in calendar view |
+| `calendar-date-change` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `{ next, prev }` | Triggered after anchor date changes in calendar view |
+| `calendar-task-click` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `(task: Task, event: MouseEvent)` | Triggered when an existing task card is clicked in calendar view |
+| `calendar-task-move` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `CalendarTaskMovePayload` | Triggered after an existing task card is dragged and dropped in calendar view |
+| `resource-usage-scale-change` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `{ next, prev }` | Triggered after scale switch in resource-usage view |
+| `resource-usage-cell-click` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `ResourceUsageCellPayload` | Triggered when a workload cell is clicked in resource-usage view |
+| `resource-usage-cell-hover` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `ResourceUsageCellPayload \| null` | Triggered when mouse enters/leaves a workload cell in resource-usage view |
+| `resource-usage-overload-detected` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `{ resourceId, periods }` | Triggered when an overload period is detected for a resource in resource-usage view |
+| `resource-usage-task-detail-click` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `ResourceUsageTaskDetailClickPayload` | Triggered when a task item inside the workload cell tooltip detail is clicked; automatically switches to `'task'` view and scrolls to that task |
 
 #### Example 1: Simplest Gantt Chart
 
@@ -455,7 +514,7 @@ For complete event documentation, see:
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const tasks = ref([
   {
@@ -487,7 +546,7 @@ const assigneeOptions = ref([
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const tasks = ref([
   {
@@ -545,7 +604,7 @@ const assigneeOptions = ref([
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const tasks = ref([])
 const milestones = ref([])
@@ -625,7 +684,7 @@ Control component state through reactive Props binding. Component state will aut
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const tasks = ref([
   { id: 1, name: 'Task 1', startDate: '2025-01-01', endDate: '2025-01-10', progress: 50 },
@@ -696,10 +755,11 @@ Tasks are the core elements of the Gantt chart. The component provides complete 
 | `tasks`               | `Task[]`         | `[]`        | Array of task data                                                                            |
 | `useDefaultDrawer`    | `boolean`        | `true`      | Whether to use built-in task edit drawer (TaskDrawer)                                         |
 | `taskBarConfig`       | `TaskBarConfig`  | `{}`        | Task bar style configuration, see [TaskBarConfig Configuration](#taskbarconfig-configuration) |
+| `linkConfig` ![v1.12.1](https://img.shields.io/badge/v1.12.1-409EFF?style=flat-square&labelColor=ECF5FF) | `LinkConfig` | `undefined` | Link line style configuration, see [LinkConfig Configuration](#linkconfig-configuration) |
 | `taskListConfig`      | `TaskListConfig` | `undefined` | Task list configuration, see [TaskListConfig Configuration](#tasklistconfig-configuration)    |
 | `autoSortByStartDate` | `boolean`        | `false`     | Whether to automatically sort tasks by start date                                             |
 | `enableTaskRowMove`        | `boolean` | `false`  | Whether to alloww dragging and dropping TaskRow  |
-| `assigneeOptions`           | `Array<{ key?: string \| number; value: string \| number; label: string }>`          | `[]`    | Assignee dropdown options in task edit drawer          |
+| `assigneeOptions`           | `Array<{ key?: string \| number; value: string \| number; label: string; avatar?: string; type?: string ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) }>`          | `[]`    | Assignee dropdown options in task edit drawer. `type` is an optional resource category (Human/Device/Others); selecting a resource auto-fills the category field on the bound resource row          |
 | `taskListColumnRenderMode` | `'default' \| 'declarative'` | `'default'` | Task list column render mode. `'default'`: Use TaskListColumnConfig configuration (compatibility mode, will be gradually deprecated); `'declarative'`: Use TaskListColumn component for declarative column definition (recommended). See [TaskListColumn Declarative Column Definition](#tasklistcolumn-declarative-column-definition) |
 | `taskListRowClassName` | `string \| ((task: Task) => string)` | `undefined` | Custom CSS class name for task rows. Can be a string or a function that returns a string. **Note**: Row height is managed internally by the component, custom height styles will not take effect |
 | `taskListRowStyle` | `CSSProperties \| ((task: Task) => CSSProperties)` | `undefined` | Custom inline styles for task rows. Can be a style object or a function that returns a style object. **Note**: Row height and width are managed internally by the component, custom width/height styles will not take effect |
@@ -758,7 +818,7 @@ Tasks are the core elements of the Gantt chart. The component provides complete 
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
 import type { Task } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const tasks = ref<Task[]>([
   {
@@ -849,7 +909,7 @@ Tasks can configure predecessors via the `predecessor` field, and the component 
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
 import type { Task } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const tasks = ref<Task[]>([
   {
@@ -972,7 +1032,7 @@ Suitable for scenarios requiring complete custom control bar:
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const tasks = ref([])
 const milestones = ref([])
@@ -1036,7 +1096,7 @@ Allow users to adjust task hierarchy and order by dragging TaskRow:
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
 import type { Task } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const tasks = ref<Task[]>([
   {
@@ -1155,7 +1215,8 @@ Resource management is used to manage human resources or equipment in a project,
 | --------------- | ------------------- | -------- | ------- | ----------------------------------------------------------------------------------------------------------- |
 | `id`            | `string \| number`  | ✅       | -       | Unique resource identifier                                                                                  |
 | `name`          | `string`            | ✅       | -       | Resource name (e.g., person name, device name)                                                              |
-| `type`          | `string`            | -        | -       | Resource type (e.g., 'developer', 'designer', 'device')                                                     |
+| `title` ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) | `string` | -        | -       | Resource job title/role (e.g. 'Frontend Engineer', 'Project Manager'), free text |
+| `type` ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) | `string` | -        | `'Human'` | Resource category, used to distinguish human/device/other resources. Preset values: `'Human'` / `'Device'` / `'Others'` (plain string, no strict enum validation, custom values allowed) |
 | `avatar`        | `string`            | -        | -       | Resource avatar URL                                                                                         |
 | `description`   | `string`            | -        | -       | Resource description                                                                                        |
 | `department`    | `string`            | -        | -       | Department                                                                                                  |
@@ -1165,6 +1226,8 @@ Resource management is used to manage human resources or equipment in a project,
 | `tasks`         | `Task[]`            | -        | `[]`    | Array of tasks assigned to this resource, **each task needs `resources` field to mark resource utilization** |
 | `[key: string]` | `unknown`           | -        | -       | Support custom property extension, can add any additional fields                                            |
 
+> **⚠️ Breaking Change (v1.13.5)**: The semantics of the `type` field changed from "free-text description" to "resource category". Please migrate any job-title/role text previously stored in `type` to the new `title` field (before: `{ type: 'Frontend Engineer' }` → after: `{ title: 'Frontend Engineer', type: 'Human' }`). **No automatic runtime fallback is provided** — please migrate your resource data before upgrading. If `type` is not set, it defaults to `'Human'` internally. See [CHANGELOG.md](./CHANGELOG.md) for details.
+>
 > **Custom Property Extension**: Resource interface supports adding any custom fields, e.g., `email`, `phone`, `location`, `workHours`, etc.
 >
 > **Task-Resource Association**:
@@ -1175,6 +1238,36 @@ Resource management is used to manage human resources or equipment in a project,
 > - `capacity` range: 20-100, representing the percentage of resource used by that task
 > - Conflict detection: When multiple tasks' `capacity` sum > 100% for the same resource in the same time period, a conflict warning is displayed
 
+#### Custom Resource Categories ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF)
+
+The "category" dropdown in the TaskDrawer resource allocation row shows the built-in Human/Device/Others options by default (labels auto-switch between Chinese/English based on `locale`). If your business has its own category taxonomy, or needs custom i18n, you can pass `resourceTypeOptions` to fully replace the default options, or use `showResourceTypeOption` to hide the dropdown entirely (when hidden, `resource.type` still defaults to `'Human'` internally, with no impact on the underlying data structure).
+
+```vue
+<template>
+  <GanttChart
+    :tasks="tasks"
+    :resources="resources"
+    :resource-type-options="resourceTypeOptions"
+    :show-resource-type-option="true"
+  />
+</template>
+
+<script setup>
+import type { ResourceTypeOption } from 'jordium-gantt-vue3'
+
+// Fully custom category set (value is written to resource.type / task.resources[].type;
+// label is fully controlled externally, so you can implement your own i18n)
+const resourceTypeOptions: ResourceTypeOption[] = [
+  { value: 'Employee', label: 'Full-time Employee' },
+  { value: 'Contractor', label: 'Contractor' },
+  { value: 'Equipment', label: 'Equipment' },
+]
+</script>
+```
+
+- When `resourceTypeOptions` is not set (or an empty array is passed), the built-in Human/Device/Others options are used, matching pre-upgrade behavior exactly.
+- To only hide the dropdown without providing a custom category set, simply set `:show-resource-type-option="false"` — `resource.type` still defaults to `'Human'` per the built-in logic.
+
 **Resource Data Example**:
 
 ```typescript
@@ -1184,7 +1277,8 @@ const resources: Resource[] = [
   {
     id: 'dev-001',
     name: 'Zhang San',
-    type: 'developer',
+    title: 'developer', // Migrated from the old `type` field
+    type: 'Human',       // New: resource category
     avatar: '/avatars/zhangsan.jpg',
     department: 'R&D',
     skills: ['Vue', 'TypeScript', 'Node.js'],
@@ -1218,7 +1312,8 @@ const resources: Resource[] = [
   {
     id: 'dev-002',
     name: 'Li Si',
-    type: 'developer',
+    title: 'developer', // Migrated from the old `type` field
+    type: 'Human',       // New: resource category
     avatar: '/avatars/lisi.jpg',
     department: 'R&D',
     skills: ['React', 'TypeScript'],
@@ -1273,6 +1368,8 @@ const resource = {
 | `resources`           | `Resource[]`           | `[]`         | Array of resource data                                                                                   |
 | `viewMode`            | `'task' \| 'resource'` | `'task'`     | View mode: 'task' for task planning view, 'resource' for resource planning view                         |
 | `resourceListConfig`  | `ResourceListConfig`   | `undefined`  | Resource list configuration, similar to TaskListConfig, for configuring resource list columns, width etc |
+| `resourceTypeOptions`  ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) | `ResourceTypeOption[]` (`{ value: string; label: string }`) | `[]` | Custom option set for the "category" dropdown in the TaskDrawer resource allocation row. When not set or an empty array is passed, falls back to the built-in Human/Device/Others options. `label` is fully controlled externally, enabling custom categories or i18n. See the "Custom Resource Categories" example below |
+| `showResourceTypeOption`  ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean` | `true` | Whether to show the "category" dropdown in the TaskDrawer resource allocation row. Set to `false` to fully hide this column (still defaults to `'Human'` internally for `resource.type`, no impact on the underlying data) |
 | `showConflicts`       | `boolean`              | `true`       | Whether to display resource conflict visualization layer (diagonal stripe background in resource view)   |
 | `showTaskbarTab`      | `boolean`              | `true`       | Whether to display resource tab on TaskBar (resource utilization label on TaskBar in resource view)     |
 
@@ -1307,13 +1404,14 @@ const resource = {
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
 import type { Resource } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const resources = ref<Resource[]>([
   {
     id: 'dev-001',
     name: 'Zhang San',
-    type: 'developer',
+    title: 'developer', // v1.13.5: migrated from the old `type` field
+    type: 'Human',       // v1.13.5: new resource category
     department: 'R&D',
     tasks: [
       {
@@ -1360,9 +1458,23 @@ Milestones are used to mark important time points in a project, such as project 
 #### Milestone-Related Props
 
 | Prop                        | Type      | Default | Description                                                       |
-| --------------------------- | --------- | ------- | ----------------------------------------------------------------- |
+| --------------------------- | --------- | ------- | ------------------------------------------------------------------ |
 | `milestones`                | `Task[]`  | `[]`    | Array of milestone data (type is Task[], ensure type='milestone') |
 | `useDefaultMilestoneDialog` | `boolean` | `true`  | Whether to use built-in milestone edit dialog (MilestoneDialog)   |
+| `milestoneLabelPosition` ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) | `'left' \| 'top' \| 'right' \| 'bottom'` | `'right'` | Milestone label position relative to the icon (or custom `custom-milestone-content` slot content). Default matches the previous hardcoded behavior |
+
+**Milestone Label Position Example** ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF):
+
+```vue
+<GanttChart :tasks="tasks" :milestones="milestones" milestone-label-position="top" />
+```
+
+| Value      | Description                          |
+| ---------- | ------------------------------------ |
+| `'right'`  | Label to the right of icon (default) |
+| `'left'`   | Label to the left of icon            |
+| `'top'`    | Label above the icon                 |
+| `'bottom'` | Label below the icon                 |
 
 **Configuration Notes**:
 
@@ -1421,7 +1533,7 @@ Using the new event API, component auto-manages data, more concise:
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
 import type { Task } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const milestones = ref<Task[]>([
   {
@@ -1510,7 +1622,7 @@ If you need to fully customize the milestone editing interface, you can disable 
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import CustomMilestoneDialog from './CustomMilestoneDialog.vue'
 import type { Task } from 'jordium-gantt-vue3'
 
@@ -1748,6 +1860,204 @@ const handleDelete = () => {
 
 ---
 
+### CalendarView Component ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF)
+
+`CalendarView` powers GanttChart's calendar view (`view-mode="calendar"`) and can also be mounted standalone via `import`, for viewing/creating day/week/month-level task schedules per resource.
+
+#### Data Model
+
+`CalendarView` has **no separate calendar-only data structure** — it reuses the same `Task[]` / `Resource[]` model as the task/resource views (see [Task Management](#task-management) and [Resource Management](#resource-management-)). `CalendarTypes.ts` only adds calendar-specific helper types: `WorkingHoursConfig`, `CalendarScale` (`'day' | 'week' | 'month'`), `CalendarSelectionDraft` / `CalendarSelectionRange`, and `CalendarTaskMovePayload` (![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) the old/new time range after dragging a task, containing `task` (the fully updated Task object), `previousStartDate` / `previousEndDate` / `newStartDate` / `newEndDate` (Date), and `resourceId`).
+
+This means the same `tasks` / `resources` datasets passed to GanttChart via `:tasks` / `:resources` are reused directly by the calendar view; tasks created or edited in the calendar view are synced back into that same dataset — no adapter/mapping code is required.
+
+#### CalendarView Props
+
+| Prop                    | Type                                                     | Default                                    | Description                                                                 |
+| ----------------------- | --------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------- |
+| `tasks`                 | `Task[]`                                                   | -                                             | Task dataset (shared with GanttChart)                                           |
+| `resources`             | `Resource[]`                                               | `[]`                                          | Resource dataset (shared with GanttChart)                                       |
+| `scale` / `defaultScale`| `'day' \| 'week' \| 'month'`                                | `'day'`                                       | Current / default view scale                                                    |
+| `currentDate`           | `Date \| string`                                            | today                                         | Anchor date                                                                      |
+| `selectedResourceId`    | `string \| number \| null`                                  | -                                             | Selected resource ID; no tasks are shown when unset                             |
+| `workingHours`          | `WorkingHoursConfig`                                        | 8-11am / 1-5pm                                | Working hours config, used for highlighting/snapping                            |
+| `selectionMinuteStep`   | `number`                                                    | `15`                                          | Minute-snap granularity for drag selection                                       |
+| `disabled`              | `boolean`                                                   | `false`                                       | Disable drag-to-create                                                          |
+| `allDayLabel`           | `string`                                                    | `'全天'`                                      | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) Label text for the all-day task row in Day/Week views |
+| `taskCardOpacity`       | `number`                                                    | `0.18`                                        | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) Task card background opacity (0-1) in Day/Week views; base color is `task.barColor` or the theme accent |
+| `taskAccentWidth`       | `number`                                                    | `5`                                           | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) Left accent bar width (px) of task cards in Day/Week views |
+| `onBeforeSelect`        | `(range) => boolean \| Promise<boolean>`                     | -                                             | Hook before a drag selection is confirmed; return `false` to cancel             |
+| `onBeforeResourceChange`| `(nextId, prevId) => boolean \| Promise<boolean>`             | -                                             | Hook before switching the selected resource                                     |
+| `onBeforeViewChange`    | `(next, prev) => boolean \| Promise<boolean>`                 | -                                             | Hook before switching day/week/month scale                                      |
+| `onTaskClick`           | `(task, event) => void`                                     | -                                             | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) Fired when an existing task card is clicked |
+| `onTaskMove`            | `(payload: CalendarTaskMovePayload) => void`                 | -                                             | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) Fired after an existing task card is dragged and dropped |
+
+#### CalendarView Slots
+
+| Slot        | Params            | Description                                                                          |
+| ----------- | ----------------- | ------------------------------------------------------------------------------------- |
+| `task-card` | `{ task, style }` | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) Custom render slot for timed task cards in Day/Week views. Default content: a title line showing `"task.name - HH:mm ~ HH:mm"` (or just `task.name` for all-day tasks), plus a description line below when `task.description` is set; `style` already includes position/color styles and can be bound directly to the custom card root |
+
+#### CalendarView Events
+
+| Event                 | Payload                    | Description                    |
+| ---------------------- | --------------------------- | -------------------------------- |
+| `selection-complete`   | `CalendarSelectionRange`    | Fired after a drag selection is confirmed |
+| `selection-cancel`     | `{ reason }`                | Fired after a drag selection is cancelled |
+| `resource-change`      | `{ next, prev }`            | Fired after the selected resource changes |
+| `view-change`          | `{ next, prev }`            | Fired after day/week/month scale changes  |
+| `date-change`          | `{ next, prev }`            | Fired after the anchor date changes       |
+| `task-click`           | `(task: Task, event: MouseEvent)` | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) Fired when an existing task card is clicked |
+| `task-move`            | `CalendarTaskMovePayload`   | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) Fired after an existing task card is dragged and dropped: Day view supports moving within the same day, Week view supports both time and cross-day moves, Month view supports dropping onto any day cell |
+
+> When used inside GanttChart, these two events are forwarded as `calendar-task-click` / `calendar-task-move` (consistent with the other `calendar-*` prefixed events), and the built-in TaskDrawer is opened automatically for editing when `useDefaultDrawer=true`.
+
+> 💡 **Expose Methods** (`goToToday()`, `goToDate()`, `setScale()`, `clearSelection()`) are also documented in [Configuration & Customization → Expose Methods → CalendarView Expose Methods](#calendarview-expose-methods-); note that GanttChart **does not** forward these methods — they are only callable via `CalendarView`'s own template ref when [using it standalone](#calendarview-component).
+>
+> Within GanttChart, all CalendarView props above can be forwarded via the `calendarProps` prop (e.g. `:calendar-props="{ taskCardOpacity: 0.25, taskAccentWidth: 4 }"`). See [Configuration & Customization → CalendarView Configuration (calendarProps)](#calendarview-configuration-calendarprops-).
+
+#### Expose Methods
+
+| Method              | Description                    |
+| -------------------- | -------------------------------- |
+| `goToToday()`         | Jump to today                     |
+| `goToDate(date)`      | Jump to a specific date            |
+| `setScale(scale)`     | Switch day/week/month scale         |
+| `clearSelection()`    | Clear the current drag selection highlight |
+
+#### Example: Custom `#task-card` Slot
+
+```vue
+<template>
+  <CalendarView :tasks="tasks" :resources="resources" :selected-resource-id="selectedResourceId">
+    <template #task-card="{ task, style }">
+      <div :style="style" class="my-task-card">
+        <strong>{{ task.name }}</strong>
+        <span class="my-task-card-time">{{ formatTime(task.startDate) }} ~ {{ formatTime(task.endDate) }}</span>
+        <p v-if="task.description" class="my-task-card-desc">{{ task.description }}</p>
+      </div>
+    </template>
+  </CalendarView>
+</template>
+```
+
+The scoped `style` object already contains the card's position/color styles computed by CalendarView (top/height/left/width/background/border-left, etc.) — bind it directly to your custom card's root element so it stays correctly positioned on the day/week grid; you're then free to lay out the title, time range, description, or any other custom content inside.
+
+---
+
+### ResourceUsageView Component ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF)
+
+`ResourceUsageView` powers GanttChart's resource-usage view (`view-mode="resource-usage"`) and can also be mounted standalone via `import`, displaying an MS-Project-style dual-panel layout (left resource list + right work-hour grid) to inspect each resource's workload percentage and overload status across day/week/month periods.
+
+Since v1.13.0, the left resource-list panel **directly embeds the same `TaskList` component instance** used by the resource-planning view (rather than a look-alike reimplementation), gaining declarative columns (`TaskListColumn`), column/header slots, sticky header, and first-column pinning — identical to the resource-planning view. Vertical scroll position and row-hover highlight are synced with the right work-hour grid panel automatically, bridged through the same global event protocol used by `TaskList`/`Timeline`, requiring no extra configuration. Both axes use virtual scrolling (rendering only the visible viewport plus a buffer), so the view scales to many resources and long time spans (e.g. a full year at "day" scale) without impacting scroll performance.
+
+#### Data Model
+
+`ResourceUsageView` requires **no separate data structure or conversion step** — it reuses the same `Resource[]` dataset already used by GanttChart (identical to the `resources` passed for the resource-planning view, `view-mode="resource"`):
+
+- `resource.id` / `resource.name`: shown in the left resource list
+- `resource.tasks: Task[]`: the tasks assigned to this resource, used for workload aggregation; each task needs `startDate` / `endDate` (required), `estimatedHours` (optional, defaults to 8h/workday), `resources: [{ id, capacity }]` (optional, defaults to 100%)
+
+`ResourceUsageTypes.ts` adds a few helper types specific to this view: `ResourceUsageScale` (`'day' | 'week' | 'month'`), `ResourceUsageCellData` (a single resource's aggregated workload for one time bucket, containing `totalHours`/`totalPercent`/`isOverloaded`/`taskBreakdown`), and `ResourceUsageCellPayload` (the payload for `cell-click`/`cell-hover`).
+
+#### ResourceUsageView Props
+
+| Prop                    | Type                                                          | Default     | Description                                                                                    |
+| ----------------------- | -------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------ |
+| `resources`             | `Resource[]`                                                    | -           | Resource dataset (shared with GanttChart)                                                        |
+| `scale` / `defaultScale`| `'day' \| 'week' \| 'month'`                                      | `'week'`    | Current / default workload scale                                                                 |
+| `dateRange`             | `{ start: Date; end: Date }`                                    | current month | Time range for workload aggregation                                                           |
+| `resourceListConfig`    | `ResourceListConfig`                                            | `undefined` | Left resource-list column config; falls back to the built-in `DEFAULT_RESOURCE_LIST_COLUMNS`      |
+| `columnRenderMode`      | `'default' \| 'declarative'`                                     | `'default'` | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) `'default'` uses `resourceListConfig.columns`; `'declarative'` uses `TaskListColumn` declared in the default slot |
+| `overloadThreshold`     | `number`                                                        | `100`       | Overload threshold (percentage)                                                                   |
+| `underloadThreshold`    | `number`                                                        | `60`        | Underload threshold (percentage)                                                                  |
+| `overloadColor`         | `string`                                                        | theme default | Overloaded cell background color                                                               |
+| `normalColor`           | `string`                                                        | theme default | Normal cell background color                                                                    |
+| `underloadColor`        | `string`                                                        | theme default | Underloaded cell background color                                                               |
+| `weekendColor`          | `string`                                                        | theme default | Weekend column background color (only effective at `scale === 'day'`)                            |
+| `rowHeight`             | `number`                                                        | `51`        | Row height (px), shared by both panels                                                            |
+| `columnWidth`           | `number`                                                        | scale-based | Cell column width (px); defaults by `scale` when unset (day: 56 / week: 80 / month: 100)          |
+| `disabled`              | `boolean`                                                       | `false`     | Disable the component (dimmed and non-interactive)                                                |
+| `onBeforeScaleChange`   | `(next, prev) => boolean \| Promise<boolean>`                    | -           | Hook before the scale changes; return `false` to cancel                                            |
+| `onCellClick`           | `(payload: ResourceUsageCellPayload) => void`                    | -           | Fired when a work-hour cell is clicked                                                            |
+| `onTaskDetailClick` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `(payload: ResourceUsageTaskDetailClickPayload) => void` | -           | Fired when a task item inside the workload cell tooltip detail is clicked; when used via GanttChart, automatically switches to `'task'` view and scrolls to that task |
+
+#### ResourceUsageView Slots
+
+| Slot      | Description                                                                                                                             |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `default` | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) Forwarded to the embedded `TaskList`'s default slot; when `columnRenderMode="declarative"`, place `TaskListColumn` declarations here, identical to the resource-planning view |
+
+#### ResourceUsageView Events
+
+| Event                | Payload                                                                    | Description                       |
+| --------------------- | ----------------------------------------------------------------------------- | ------------------------------------ |
+| `scale-change`       | `{ next: ResourceUsageScale; prev: ResourceUsageScale }`                       | Fired after the workload scale changes |
+| `cell-click`         | `ResourceUsageCellPayload`                                                     | Fired when a work-hour cell is clicked |
+| `cell-hover`         | `ResourceUsageCellPayload \| null`                                              | Fired on mouse enter/leave of a work-hour cell |
+| `overload-detected`  | `{ resourceId: string \| number; periods: ResourceUsageCellData[] }`           | Fired when a resource has overloaded periods (re-evaluated automatically as data changes) |
+| `task-detail-click` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `ResourceUsageTaskDetailClickPayload` | Fired when a task item inside the workload cell tooltip detail is clicked |
+
+> 💡 **Expose Methods** (`setScale()`, `refreshAggregation()`) are also documented in [Configuration & Customization → Expose Methods → ResourceUsageView Expose Methods](#resourceusageview-expose-methods-); GanttChart **does not** forward these methods — they are only callable when [using `ResourceUsageView` standalone](#resourceusageview-component-). Scale switching is driven by the controlled `scale` prop from an external control (e.g. GanttChart toolbar's Day/Week/Month buttons); when used standalone, set an initial value via `defaultScale`, or call `setScale()` programmatically.
+>
+> Within GanttChart, set `view-mode="resource-usage"` to switch to the resource-usage view; all props in the table above can be forwarded via the `resourceUsageProps` prop (e.g. `:resource-usage-props="{ columnRenderMode: 'declarative', overloadColor: '#fde2e2' }"`). See [Configuration & Customization → ResourceUsageView Configuration (resourceUsageProps)](#resourceusageview-configuration-resourceusageprops-). The five events above are forwarded as `resource-usage-scale-change` / `resource-usage-cell-click` / `resource-usage-cell-hover` / `resource-usage-overload-detected` / `resource-usage-task-detail-click`. GanttChart's default slot (declarative column definitions) is also forwarded to the embedded `TaskList` under `view-mode="resource-usage"`, consistent with the `TaskList` branch.
+
+#### Example: Resource-Usage View via GanttChart
+
+```vue
+<template>
+  <div style="height: 600px;">
+    <GanttChart
+      :resources="resources"
+      view-mode="resource-usage"
+      :resource-usage-props="{ overloadThreshold: 100, underloadThreshold: 60 }"
+      @resource-usage-cell-click="handleCellClick"
+      @resource-usage-overload-detected="handleOverloadDetected"
+    >
+      <!-- With columnRenderMode="declarative", declarative columns work exactly like the resource-planning view -->
+      <TaskListColumn key="type" label="Type" />
+      <TaskListColumn key="department" label="Department" />
+      <TaskListColumn key="capacity" label="Utilization" />
+    </GanttChart>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { GanttChart, TaskListColumn } from 'jordium-gantt-vue3'
+import type { Resource } from 'jordium-gantt-vue3'
+import 'jordium-gantt-vue3/index.css'
+
+const resources: Resource[] = [
+  {
+    id: 'dev-001',
+    name: 'Zhang San',
+    title: 'developer', // v1.13.5: migrated from the old `type` field
+    type: 'Human',       // v1.13.5: new resource category
+    department: 'R&D',
+    tasks: [
+      {
+        id: 1,
+        name: 'Frontend Development',
+        startDate: '2026-02-01',
+        endDate: '2026-02-10',
+        progress: 50,
+        resources: [{ id: 'dev-001', capacity: 60 }],
+      },
+    ],
+  },
+]
+
+const handleCellClick = (payload: any) => {
+  console.log('Cell clicked:', payload)
+}
+
+const handleOverloadDetected = (payload: any) => {
+  console.log('Overload detected:', payload)
+}
+</script>
+```
+
+---
+
 ## ⚙️ Configuration & Customization
 
 This section details the configuration options and extension capabilities of the GanttChart component, including Component Configuration, Theme & Internationalization, and Custom Extensions.
@@ -1849,7 +2159,7 @@ TimelineScale.YEAR // 'year' - Year view
 
 <script setup lang="ts">
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { ToolbarConfig } from 'jordium-gantt-vue3'
 
 const toolbarConfig: ToolbarConfig = {
@@ -1979,6 +2289,7 @@ Customize task list display columns, width limits, etc. Task list is located on 
 | `cssClass` | `string`  | -        | Custom CSS class name                                                                           |
 | `width`    | `number`  | -        | Column width (unit: pixels)                                                                     |
 | `visible`  | `boolean` | -        | Whether to show this column, default `true`. This setting is invalid when `showAllColumns=true` |
+| `fixed` ![v1.12.1](https://img.shields.io/badge/v1.12.1-409EFF?style=flat-square&labelColor=ECF5FF) | `'left' \| 'right' \| boolean` | - | Column pinning. `'left'`: column auto-reorders to far left and sticks (name column always at `left:0`, multiple left-fixed columns offset cumulatively). `'right'`: column sticks to far right. `true` is equivalent to `'left'` |
 
 **Example1：Basic Configuration (Adjust Width)**
 
@@ -1989,7 +2300,7 @@ Customize task list display columns, width limits, etc. Task list is located on 
 
 <script setup lang="ts">
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { TaskListConfig } from 'jordium-gantt-vue3'
 
 const taskListConfig: TaskListConfig = {
@@ -2009,7 +2320,7 @@ const taskListConfig: TaskListConfig = {
 
 <script setup lang="ts">
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { TaskListConfig } from 'jordium-gantt-vue3'
 
 const taskListConfig: TaskListConfig = {
@@ -2031,7 +2342,7 @@ Based on business requirements, you can customize columns to display, column wid
 
 <script setup lang="ts">
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { TaskListConfig, TaskListColumnConfig } from 'jordium-gantt-vue3'
 
 // Define column configuration to display
@@ -2117,7 +2428,7 @@ Combine `ref` and `computed` to achieve dynamic show/hide and width adjustment o
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { TaskListConfig, TaskListColumnConfig } from 'jordium-gantt-vue3'
 
 // Define dynamically configurable columns
@@ -2175,6 +2486,7 @@ Controls task bar display content and interaction behavior。
 | `resizeHandleWidth` | `number`  | `5`     | Resize handle width (pixels), max 15px                    |
 | `enableDragDelay`   | `boolean` | `false` | Whether to enable drag delay (prevent accidental trigger) |
 | `dragDelayTime`     | `number`  | `150`   | Drag delay time (milliseconds)                            |
+| `titlePosition` ![v1.12.0](https://img.shields.io/badge/v1.12.0-409EFF?style=flat-square&labelColor=ECF5FF) | `'inside' \| 'above'` | `'inside'` | Task title render position. `'inside'`: title inside the bar (white text, default). `'above'`: title floats above the bar; only progress percentage is shown inside — ideal for narrow bars (1–3 day tasks) or long task names |
 
 > **💡 Edit Permission Control**：
 >
@@ -2190,7 +2502,7 @@ Controls task bar display content and interaction behavior。
 
 <script setup lang="ts">
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { TaskBarConfig } from 'jordium-gantt-vue3'
 
 const taskBarConfig: TaskBarConfig = {
@@ -2278,6 +2590,65 @@ const taskBarConfig = computed<TaskBarConfig>(() => ({
 </script>
 ```
 
+#### LinkConfig (Link Line Style Configuration) ![v1.12.1](https://img.shields.io/badge/v1.12.1-409EFF?style=flat-square&labelColor=ECF5FF)
+
+Controls the style and interaction behavior of dependency links (GanttLinks) in the Gantt chart.
+
+**Configuration Fields:**
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `type` | `'bezier' \| 'straight' \| 'orthogonal'` | `'bezier'` | Link path type. `'bezier'`: Bézier curve (default); `'straight'`: straight line; `'orthogonal'`: L/Z-shaped orthogonal polyline |
+| `color` | `string` | `'#c0c4cc'` | Normal link color |
+| `highlightColor` | `string` | `'#409eff'` | Highlight link color (when hovering over dependent task) |
+| `hoverColor` | `string` | `'#67c23a'` | Hover link color |
+| `width` | `number` | `2` | Normal link line width |
+| `highlightWidth` | `number` | `4` | Highlight link line width |
+| `style` | `'dotted' \| 'solid'` | `'dotted'` | Link style. `'dotted'`: dashed line; `'solid'`: solid line |
+
+**Example 1: Static Configuration**
+
+```vue
+<template>
+  <GanttChart :tasks="tasks" :link-config="linkConfig" />
+</template>
+
+<script setup lang="ts">
+import type { LinkConfig } from 'jordium-gantt-vue3'
+
+const linkConfig: LinkConfig = {
+  type: 'orthogonal',
+  color: '#ff6b6b',
+  style: 'solid',
+  width: 3,
+}
+</script>
+```
+
+**Example 2: Runtime Dynamic Switching**
+
+```vue
+<template>
+  <GanttChart ref="ganttRef" :tasks="tasks" />
+  <button @click="switchToStraight">Switch to Straight</button>
+  <button @click="switchToOrthogonal">Switch to Orthogonal</button>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+
+const ganttRef = ref()
+
+function switchToStraight() {
+  ganttRef.value?.setLinkConfig({ type: 'straight', color: '#409eff' })
+}
+
+function switchToOrthogonal() {
+  ganttRef.value?.setLinkConfig({ type: 'orthogonal', style: 'solid' })
+}
+</script>
+```
+
 #### scaleConfigs (Timeline Scale Configuration) ![v1.11.0](https://img.shields.io/badge/v1.11.0-409EFF?style=flat-square&labelColor=ECF5FF)
 
 Customize the cell width, header formatter strings, and buffer sizes for each time scale. Only pass the scales you want to override — unspecified scales continue using built-in defaults.
@@ -2338,7 +2709,7 @@ Customize the cell width, header formatter strings, and buffer sizes for each ti
 
 <script setup lang="ts">
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const scaleConfigs = {
   day: { cellWidth: 60 },   // Widen day view cells to 60px (default 30px)
@@ -2449,6 +2820,42 @@ The component has built-in intelligent timeline range calculation logic, ensurin
 > - Avoids issues with timeline being too narrow or having excessive whitespace
 > - Suitable for displaying at different resolutions
 
+#### CalendarView Configuration (calendarProps) ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF)
+
+Setting `view-mode="calendar"` on `GanttChart` renders the internal `CalendarView` component; `calendarProps` is a dedicated forwarding channel (to avoid bloating GanttChart's top-level props), where fields are bound to `CalendarView` via `v-bind` as-is.
+
+For the complete property/slot/event list, see the [CalendarView Component](#calendarview-component) section's "CalendarView Props" table. Expose methods are documented in the [Expose Methods](#expose-methods) section below.
+
+```vue
+<GanttChart
+  view-mode="calendar"
+  :calendar-props="{
+    allDayLabel: 'All Day',       // All-day task row label text
+    taskCardOpacity: 0.25,        // Task card background opacity
+    taskAccentWidth: 4,           // Task card left accent bar width (px)
+    selectionMinuteStep: 30,      // Drag selection snap-to-grid (minutes)
+  }"
+/>
+```
+
+#### ResourceUsageView Configuration (resourceUsageProps) ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF)
+
+Setting `view-mode="resource-usage"` on `GanttChart` renders the internal `ResourceUsageView` component; `resourceUsageProps` is similarly forwarded to `ResourceUsageView`.
+
+For the complete property/slot/event list, see the [ResourceUsageView Component](#resourceusageview-component-) section's "ResourceUsageView Props" table. Expose methods are documented in the [Expose Methods](#expose-methods) section below.
+
+```vue
+<GanttChart
+  view-mode="resource-usage"
+  :resource-usage-props="{
+    columnRenderMode: 'declarative', // Use declarative TaskListColumn columns in resource list sidebar
+    overloadThreshold: 100,          // Overload threshold (percentage)
+    underloadThreshold: 60,          // Underload threshold (percentage)
+    overloadColor: '#fde2e2',        // Overload cell background color
+  }"
+/>
+```
+
 ### Expose Methods
 
 The GanttChart component exposes a series of methods through `defineExpose`, allowing parent components to directly call these methods via template references (`ref`) to control component behavior. This imperative control approach is suitable for scenarios requiring precise timing control.
@@ -2479,6 +2886,8 @@ The GanttChart component exposes a series of methods through `defineExpose`, all
 | `getTaskListVisible` ![v1.9.2](https://img.shields.io/badge/v1.9.2-409EFF?style=flat-square&labelColor=ECF5FF) | - | `boolean` | Get the current visibility state of TaskList |
 | `setTaskListVisible` ![v1.9.2](https://img.shields.io/badge/v1.9.2-409EFF?style=flat-square&labelColor=ECF5FF) | `visible: boolean` | `void` | Imperatively set TaskList visibility (only effective when `enableTaskListCollapsible=true`) |
 | `toggleTaskList` ![v1.9.2](https://img.shields.io/badge/v1.9.2-409EFF?style=flat-square&labelColor=ECF5FF) | - | `void` | Toggle TaskList expand/collapse state with animation |
+| `setLinkConfig` ![v1.12.1](https://img.shields.io/badge/v1.12.1-409EFF?style=flat-square&labelColor=ECF5FF) | `config: Partial<LinkConfig>` | `void` | Dynamically update link line style configuration (takes effect immediately at runtime) |
+| `getLinkConfig` ![v1.12.1](https://img.shields.io/badge/v1.12.1-409EFF?style=flat-square&labelColor=ECF5FF) | - | `Required<LinkConfig>` | Get current complete link configuration (merged with defaults) |
 
 #### Usage Example
 
@@ -2527,7 +2936,7 @@ The GanttChart component exposes a series of methods through `defineExpose`, all
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
 import type { TimelineScale } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 // Component reference
 const ganttRef = ref<InstanceType<typeof GanttChart>>()
@@ -2613,6 +3022,26 @@ const handleScrollToDate = () => {
 **Complete examples can be found in:**
 - npm-demo project: `npm-demo/src/components/GanttTest.vue`
 - npm-webpack-demo project: `npm-webpack-demo/src/App.vue`
+
+#### CalendarView Expose Methods ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF)
+
+| Method              | Description                          |
+| ------------------- | ------------------------------------ |
+| `goToToday()`       | Navigate to today                    |
+| `goToDate(date)`    | Navigate to the specified date       |
+| `setScale(scale)`   | Switch day/week/month scale           |
+| `clearSelection()`  | Clear current drag selection highlight |
+
+> ⚠️ **Note**: `GanttChart` holds an internal `CalendarView` ref, but **does not forward** the above methods through `defineExpose`. They can only be called via `CalendarView`'s own template ref when [using it standalone](#calendarview-component); they are not accessible through `GanttChart` integration.
+
+#### ResourceUsageView Expose Methods ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF)
+
+| Method                   | Description                                                                  |
+| ------------------------ | ---------------------------------------------------------------------------- |
+| `setScale(scale)`         | Programmatically switch day/week/month scale                                 |
+| `refreshAggregation()`    | Force-refresh work-hour aggregation (normally unnecessary; data changes trigger reactive updates automatically) |
+
+> ⚠️ **Note**: Like `CalendarView`, `resourceUsageProps` only forwards props; `ResourceUsageView`'s expose methods **are not forwarded** through `GanttChart`'s `ref`. They can only be called when [using `ResourceUsageView` standalone](#resourceusageview-component-). Scale switching within `GanttChart` is already driven by the toolbar Day/Week/Month buttons, so manual `setScale()` calls are generally unnecessary.
 
 ---
 
@@ -3062,7 +3491,7 @@ Used to customize task display content in task list (TaskRow) and timeline (Task
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { Task } from 'jordium-gantt-vue3'
 import CustomTaskContent from './CustomTaskContent.vue'
 
@@ -3164,6 +3593,52 @@ const props = defineProps<Props>()
 > - TaskRow and TaskBar have different available space, need to adapt layout
 > - Avoid using overly complex components in slot content, may affect performance
 
+---
+
+##### `custom-milestone-content` Slot ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF)
+
+Fully replaces the default milestone icon (diamond/rocket) **and** its label. When this slot is not provided, the built-in rendering is unchanged (non-breaking).
+
+**Slot Parameters (`MilestoneSlotProps`):**
+
+| Parameter          | Type                    | Description                          |
+| ------------------ | ----------------------- | ------------------------------------ |
+| `milestone`        | `Milestone`             | The current milestone object         |
+| `task`             | `Task`                  | The original task object behind the milestone |
+| `rowHeight`        | `number`                | Row height (pixels)                  |
+| `dayWidth`         | `number`                | Width per day (pixels)               |
+| `currentTimeScale` | `TimelineScale \| null` | Current time scale                   |
+| `labelPosition`    | `'right' \| 'left' \| 'top' \| 'bottom'` | Effective label position (from `milestoneLabelPosition`), so custom content can adapt its own layout accordingly |
+
+**Usage Example：**
+
+```vue
+<template>
+  <GanttChart :tasks="tasks">
+    <template #custom-milestone-content="{ milestone, task }">
+      <div class="my-milestone">
+        <span class="my-milestone-icon">🏁</span>
+        <span class="my-milestone-label">{{ milestone.name }}（{{ task.assigneeName }}）</span>
+      </div>
+    </template>
+  </GanttChart>
+</template>
+
+<style scoped>
+.my-milestone {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.my-milestone-icon {
+  font-size: 16px;
+}
+</style>
+```
+
+> **💡 Behavior change**：Interaction handlers (click / double-click / drag / hover tooltip) are bound on the outer milestone wrapper, so the hoverable/clickable area now covers the whole custom content (icon + label), not just the original 24×24 icon. This applies whether or not the slot is used.
+
 ##### TaskListContextMenu Slots
 
 Used to customize the context menu content for TaskRow (task list row).
@@ -3209,7 +3684,7 @@ Used to customize the context menu content for TaskRow (task list row).
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart, TaskListContextMenu } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { Task } from 'jordium-gantt-vue3'
 
 const tasks = ref<Task[]>([])
@@ -3301,7 +3776,7 @@ Used to customize the context menu content for TaskBar (timeline task bar).
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart, TaskBarContextMenu } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { Task } from 'jordium-gantt-vue3'
 
 const tasks = ref<Task[]>([])
@@ -3463,7 +3938,7 @@ The `TaskListColumn` component provides two slots for customizing task list colu
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart, TaskListColumn } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { Task } from 'jordium-gantt-vue3'
 
 const tasks = ref<Task[]>([
@@ -3601,7 +4076,7 @@ In default mode (`taskListColumnRenderMode="default"`), you can customize column
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { Task, TaskListConfig, TaskListColumnConfig } from 'jordium-gantt-vue3'
 
 const tasks = ref<Task[]>([
@@ -3876,6 +4351,31 @@ Buy the author a coffee ☕ — it keeps the motivation going and the project mo
 </p>
 <p align="center"><sub>WeChat Pay &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Alipay</sub></p>
 </details>
+
+### 🌟 Our Sponsors
+
+<p align="center">
+  <a href="https://github.com/zhanmqGithub" target="_blank">
+    <img src="https://avatars.githubusercontent.com/u/129715913?v=4" width="40" height="40" style="border-radius:50%;vertical-align:middle;" alt="zhanmqGithub" />
+  </a>
+  &nbsp;<strong>zhanmqGithub</strong> — GitHub Sponsor since 2026-07
+</p>
+
+<p align="center">
+  <a href="https://gitee.com/henryli1024" target="_blank">
+    <img src="https://foruda.gitee.com/avatar/1785814118313172570/17408879_henryli1024_1785814118.png" width="40" height="40" style="border-radius:50%;vertical-align:middle;" alt="henryli1024" />
+  </a>
+  &nbsp;<strong>henryli1024</strong> — Gitee Sponsor since 2026-08
+</p>
+
+<p align="center">
+  <a href="https://gitee.com/hankzhang1688" target="_blank">
+    <img src="https://gitee.com/hankzhang1688" width="40" height="40" style="border-radius:50%;vertical-align:middle;" alt="hankzhang1688" />
+  </a>
+  &nbsp;<strong>hankzhang1688</strong> — Gitee Sponsor since 2026-08
+</p>
+
+See the full list of sponsors and how to be listed in [SPONSORS-EN.md](./SPONSORS-EN.md).
 
 > 🙏 A **⭐ Star** on GitHub is also a wonderful way to show support — it helps others discover this project!
 

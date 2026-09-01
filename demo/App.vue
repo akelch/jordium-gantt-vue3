@@ -8,6 +8,7 @@ import mediumData from './data-100.json'
 import largeData from './data-large-1m.json'
 import resourcesData from './data-resources.json'
 import largeResourcesData from './data-resources-large.json'
+import sponsorInfos from './sponsors.json'
 import packageInfo from '../package.json'
 // 导入主题变量
 import '../src/styles/theme-variables.css'
@@ -17,12 +18,13 @@ import { useMessage } from '../src/composables/useMessage'
 import { useI18n } from '../src/composables/useI18n'
 import { useDemoLocale } from './useDemoLocale'
 import { getPredecessorIds, predecessorIdsToString } from '../src/utils/predecessorUtils'
+import { getEffectiveEndDateOnly } from '../src/utils/dateBoundaryUtils'
 import type { Task } from '../src/models/Task'
 import type { Resource } from '../src/models/classes/Resource'
 import { createResource, addTaskToResource, updateResourceUtilization } from '../src/utils/resourceUtils'
 import type { TaskListConfig, TaskListColumnConfig } from '../src/models/configs/TaskListConfig'
 import type { ResourceListConfig } from '../src/models/configs/ResourceListConfig'
-import type { TaskBarConfig } from '../src/models/configs/TaskBarConfig'
+import type { TaskBarConfig, LinkConfig } from '../src/models/configs/TaskBarConfig'
 
 const { showMessage } = useMessage()
 const { t, formatTranslation } = useI18n()
@@ -40,7 +42,7 @@ const gantt = ref<InstanceType<typeof import('../src/components/GanttChart.vue')
 const tasks = ref<Task[]>([])
 const milestones = ref<Task[]>([])
 const resources = ref<Resource[]>([])
-const viewMode = ref<'task' | 'resource'>('task')
+const viewMode = ref<'task' | 'resource' | 'calendar' | 'resource-usage'>('task')
 const useDefaultDrawer = ref(true)
 
 const rawDataSources = [
@@ -104,6 +106,7 @@ const applyDataSource = (source: RawDataSource) => {
       return createResource({
         id: resData.id,
         name: resData.name,
+        title: resData.title,
         type: resData.type,
         avatar: resData.avatar,
         description: resData.description,
@@ -119,7 +122,8 @@ const applyDataSource = (source: RawDataSource) => {
     const resourceAssigneeOptions = resources.value.map(res => ({
       value: res.id as string,
       label: res.name,
-      avatar: res.avatar
+      avatar: res.avatar,
+      type: res.type
     }))
     assigneeOptions.value = [...resourceAssigneeOptions]
   } else {
@@ -211,6 +215,10 @@ const isMilestoneEditMode = ref(false)
 const showVersionDrawer = ref(false)
 const showSponsorDialog = ref(false)
 
+// 赞助者名单（与 SPONSORS.md / SPONSORS-EN.md 保持一致）
+const showSponsorsListDialog = ref(false)
+const sponsorsList = sponsorInfos.sponsors
+
 // v1.9.7 资源编辑提示dialog状态
 const resourceEditHintVisible = ref(false)
 const clickedResource = ref<Resource | null>(null)
@@ -233,6 +241,16 @@ const toolbarConfig = reactive({
   defaultTimeScale: 'month',
   showExpandCollapse: true, // 显示全部展开/折叠按钮
   showViewMode: true, // 显示 Task/Resource 视图切换按钮组
+})
+
+// 全部时间刻度维度，供日历视图/工时视图退出时恢复使用
+const ALL_TIME_SCALE_DIMENSIONS = ['hour', 'day', 'week', 'month', 'quarter', 'year']
+// 日历视图/工时视图仅支持日/周/月粒度，切入这两个视图时联动收窄 Gantt 工具栏的时间刻度按钮组
+watch(viewMode, mode => {
+  toolbarConfig.timeScaleDimensions =
+    mode === 'calendar' || mode === 'resource-usage'
+      ? ['day', 'week', 'month']
+      : ALL_TIME_SCALE_DIMENSIONS
 })
 
 // TaskList列渲染模式配置
@@ -330,8 +348,15 @@ const resourceListConfig = computed<ResourceListConfig>(() => ({
       },
     },
     {
+      key: 'title',
+      label: '职务',
+      visible: true,
+      width: 100,
+      formatter: (resource: Resource) => resource.title || '-',
+    },
+    {
       key: 'type',
-      label: '类型',
+      label: '类别',
       visible: true,
       width: 100,
       formatter: (resource: Resource) => resource.type || '-',
@@ -354,6 +379,27 @@ const resourceListConfig = computed<ResourceListConfig>(() => ({
     widthUnit.value === '%' ? `${widthPercentage.value.maxWidth}%` : taskListWidth.value.maxWidth,
 }))
 
+// 工时视图（resource-usage）配置：直接复用 resources 数据集，无需单独转换数据结构；
+// 这里演示自定义阈值背景色（覆盖组件默认配色），scale/dateRange 由 GanttChart 根据工具栏
+// 日/周/月 与任务时间范围自动推导，无需在此重复传入
+// 自定义色需要跟随明暗主题切换，否则暗黑模式下单元格仍会保持浅色底（与主题背景冲突）
+const resourceUsageProps = computed(() => ({
+  overloadThreshold: 100,
+  underloadThreshold: 60,
+  ...(currentThemeStatus.value === 'dark'
+    ? {
+        overloadColor: '#5c3232',
+        normalColor: '#2f4a2a',
+        underloadColor: '#5c4a26',
+        weekendColor: '#5a5a5a',
+      }
+    : {
+        overloadColor: '#fde2e2',
+        normalColor: '#e1f3d8',
+        underloadColor: '#fdf6ec',
+        weekendColor: '#f0f0f0',
+      }),
+}))
 
 // 控制是否允许拖拽和拉伸
 const allowDragAndResize = ref(true)
@@ -409,6 +455,9 @@ const taskBarOptions = ref({
 const showActualTaskBar = ref(true)
 // Tooltip 自定义 Slot 演示
 const useCustomTooltip = ref(true)
+// Milestone 自定义内容 Slot 演示（v1.13.5）
+const useCustomMilestoneContent = ref(false)
+const milestoneLabelPosition = ref<'left' | 'top' | 'right' | 'bottom'>('right')
 const pendingTaskBackgroundColor = ref('#409eff')
 const delayTaskBackgroundColor = ref('#f56c6c')
 const completeTaskBackgroundColor = ref('#909399')
@@ -422,6 +471,24 @@ const taskBarConfig = computed<TaskBarConfig>(() => ({
   resizeHandleWidth: taskBarOptions.value.resizeHandleWidth,
   enableDragDelay: taskBarOptions.value.enableDragDelay,
   dragDelayTime: taskBarOptions.value.dragDelayTime,
+  // titlePosition: 'above', // 标题显示在任务条上方
+}))
+
+// [v1.12.1] Gantt Links配置 - 独立状态便于Demo面板调控
+const linkType = ref<'bezier' | 'straight' | 'orthogonal'>('orthogonal')
+const linkStyle = ref<'dotted' | 'solid'>('solid')
+const linkColor = ref('#aaa')
+const linkHighlightColor = ref('#409eff')
+const linkWidth = ref(2)
+const linkHighlightWidth = ref(4)
+
+const linkConfig = computed<LinkConfig>(() => ({
+  type: linkType.value,
+  color: linkColor.value,
+  style: linkStyle.value,
+  width: linkWidth.value,
+  highlightColor: linkHighlightColor.value,
+  highlightWidth: linkHighlightWidth.value,
 }))
 
 // 配置面板折叠状态
@@ -434,6 +501,9 @@ const isTaskListConfigCollapsed = ref(true)
 // TaskBar 配置区域折叠状态（默认收起）
 const isTaskBarConfigCollapsed = ref(true)
 
+// GanttLink 配置区域折叠状态（默认收起）
+const isGanttLinkConfigCollapsed = ref(true)
+
 // TimeScale 配置演示（直接使用符合 scaleConfigs prop 结构的静态配置）
 const scaleConfigs = {
   week: { cellWidth: 60, preBuffer: 3, sufBuffer: 3, formatter: { primary: 'yyyy-MM', secondary: 'W周' } },
@@ -445,10 +515,10 @@ const scaleConfigs = {
 }
 
 // Tool 设置区域折叠状态（默认展开用于演示）
-const isToolSettingsCollapsed = ref(false)
+const isToolSettingsCollapsed = ref(true)
 
 // ── z-index 测试工具 ─────────────────────────────────────────────────────────
-const isZIndexTestCollapsed = ref(false)
+const isZIndexTestCollapsed = ref(true)
 const zOverrideValue = ref(9999)
 const hostModalZIndex = ref(10000)
 const showHostTestModal = ref(false)
@@ -535,6 +605,11 @@ const toggleTaskListConfig = () => {
 // 切换 TaskBar 配置区域
 const toggleTaskBarConfig = () => {
   isTaskBarConfigCollapsed.value = !isTaskBarConfigCollapsed.value
+}
+
+// 切换 GanttLink 配置区域
+const toggleGanttLinkConfig = () => {
+  isGanttLinkConfigCollapsed.value = !isGanttLinkConfigCollapsed.value
 }
 
 // 切换 Tool 设置区域
@@ -708,7 +783,7 @@ const closeResourceEditHint = () => {
 }
 
 // v1.9.7 处理视图模式变化事件，同步GanttChart内部状态
-const handleViewModeChanged = (newMode: 'task' | 'resource') => {
+const handleViewModeChanged = (newMode: 'task' | 'resource' | 'calendar' | 'resource-usage') => {
   viewMode.value = newMode
   // useDefaultDrawer会由watch(viewMode)自动更新
 }
@@ -731,6 +806,24 @@ const formatPropertyValue = (value: unknown): string => {
     return JSON.stringify(value, null, 2)
   }
   return String(value)
+}
+
+/**
+ * 格式化结束日期显示（endDate / actualEndDate 通用）
+ * v1.13.5：若原始值显式带 time 部分（如 TaskDrawer 编辑保存后写入的
+ * '2025-08-01 00:00'，语义上是"7月31日结束"），需先经 getEffectiveEndDateOnly
+ * 修正（-15分钟再截断）再展示为 YYYY-MM-DD，避免自定义 slot 里显示的结束
+ * 日期比实际渲染的 taskbar 多算一天
+ */
+const formatEndDateOnly = (raw: string | undefined | null): string => {
+  if (!raw) return '-'
+  const parsed = new Date(raw)
+  if (isNaN(parsed.getTime())) return raw
+  const effective = getEffectiveEndDateOnly(raw, parsed)
+  const y = effective.getFullYear()
+  const m = String(effective.getMonth() + 1).padStart(2, '0')
+  const d = String(effective.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
 // 切换列显示状态
@@ -1000,6 +1093,16 @@ function handleTaskbarDragOrResizeEnd(newTask) {
     `任务【${newTask.name}】已更新\n` +
       `开始日期: ${newTask.startDate}\n` +
       `结束日期: ${newTask.endDate}`,
+    'success',
+    { closable: true },
+  )
+}
+// v1.13.0 日历视图拖拽已创建任务后监听：GanttChart 已经更新了 props.tasks，这里展示新旧日期供参考
+function handleCalendarTaskMove(payload) {
+  showMessage(
+    `任务【${payload.task.name}】已通过日历拖拽更新\n` +
+      `开始日期: ${payload.task.startDate}\n` +
+      `结束日期: ${payload.task.endDate}`,
     'success',
     { closable: true },
   )
@@ -1367,6 +1470,9 @@ const handleCustomMenuAction = (action: string, task: Task) => {
         </a>
       </div> -->
       <div class="title-right docs-links">
+        <button class="sponsors-count-badge" @click="showSponsorsListDialog = true" :title="demoMessages.sponsorsList?.badgeTitle || 'View Sponsors'">
+          <span class="badge-icon">💖</span>{{ sponsorsList.length }} {{ demoMessages.sponsorsList?.badgeLabel || 'Sponsors' }}
+        </button>
         <button class="sponsor-btn" @click="showSponsorDialog = true">{{ demoMessages.sponsor?.btnLabel || '&#9749; Sponsor' }}</button>
         <span class="docs-divider"></span>
         <a href="https://www.npmjs.com/package/jordium-gantt-vue3">
@@ -1417,6 +1523,44 @@ const handleCustomMenuAction = (action: string, task: Task) => {
               </div>
             </div>
             <div class="sponsor-star-hint">{{ demoMessages.sponsor?.orStar }}</div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Sponsors List Dialog -->
+    <Teleport to="body">
+      <Transition name="sponsor-fade">
+        <div v-if="showSponsorsListDialog" class="sponsor-overlay" @click.self="showSponsorsListDialog = false">
+          <div class="sponsor-dialog sponsors-list-dialog">
+            <button class="sponsor-dialog-close" @click="showSponsorsListDialog = false">&times;</button>
+            <div class="sponsor-dialog-title">{{ demoMessages.sponsorsList?.dialogTitle || 'Our Sponsors' }}</div>
+            <div class="sponsor-dialog-subtitle">{{ demoMessages.sponsorsList?.dialogSubtitle }}</div>
+            <table class="sponsors-table">
+              <thead>
+                <tr>
+                  <th>{{ demoMessages.sponsorsList?.columns?.avatar || 'Avatar' }}</th>
+                  <th>{{ demoMessages.sponsorsList?.columns?.name || 'Sponsor' }}</th>
+                  <th>{{ demoMessages.sponsorsList?.columns?.type || 'Type' }}</th>
+                  <th>{{ demoMessages.sponsorsList?.columns?.amount || 'Amount' }}</th>
+                  <th>{{ demoMessages.sponsorsList?.columns?.since || 'Since' }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="sponsor in sponsorsList" :key="sponsor.name">
+                  <td><img class="sponsor-avatar" :src="sponsor.avatar" :alt="sponsor.name" /></td>
+                  <td><a :href="sponsor.url" target="_blank" rel="noopener noreferrer">{{ sponsor.name }}</a></td>
+                  <td>{{ demoMessages.sponsorsList?.types?.[sponsor.typeKey] || sponsor.typeKey }}</td>
+                  <td>{{ sponsor.amount }}</td>
+                  <td>{{ sponsor.since }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="sponsor-star-hint">
+              <a href="https://github.com/nelson820125/jordium-gantt-vue3/blob/main/SPONSORS.md" target="_blank" rel="noopener noreferrer">
+                {{ demoMessages.sponsorsList?.viewFullList || 'View full sponsor list' }}
+              </a>
+            </div>
           </div>
         </div>
       </Transition>
@@ -1797,6 +1941,19 @@ const handleCustomMenuAction = (action: string, task: Task) => {
                       <input v-model="useCustomTooltip" type="checkbox" />
                       <span class="taskbar-label">🎨 自定义 Tooltip（Slot 演示）</span>
                     </label>
+                    <label class="taskbar-control">
+                      <input v-model="useCustomMilestoneContent" type="checkbox" />
+                      <span class="taskbar-label">🏳️ 自定义里程碑内容（custom-milestone-content Slot 演示）</span>
+                    </label>
+                    <label class="taskbar-control">
+                      <span class="taskbar-label">里程碑标签位置：</span>
+                      <select v-model="milestoneLabelPosition">
+                        <option value="right">right</option>
+                        <option value="left">left</option>
+                        <option value="top">top</option>
+                        <option value="bottom">bottom</option>
+                      </select>
+                    </label>
                   </div>
 
                   <!-- 自定义任务状态背景色 -->
@@ -1937,6 +2094,71 @@ const handleCustomMenuAction = (action: string, task: Task) => {
                       <span class="control-hint">
                         {{ t.taskBarConfig.mistouch.dragDelayTimeHint }}
                       </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </transition>
+          </div>
+
+          <!-- GanttLink 配置区域 -->
+          <div class="config-section">
+            <div class="section-header" @click="toggleGanttLinkConfig">
+              <div class="section-header-title">
+                <svg class="section-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M3 3h18v2H3V3zm0 5h18v2H3V8zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" stroke="currentColor" stroke-width="2" fill="none"/>
+                  <path d="M4 4l5 5M17 4l-5 5" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
+                </svg>
+                GanttLink 配置
+              </div>
+              <button class="section-collapse-button" :class="{ collapsed: isGanttLinkConfigCollapsed }">
+                <svg class="collapse-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7 10l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </div>
+            <transition name="section-content">
+              <div v-show="!isGanttLinkConfigCollapsed" class="section-content">
+                <div class="subsection">
+                  <div class="control-row" style="flex-wrap: wrap; gap: 14px;">
+                    <!-- type 下拉 -->
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span class="control-label" style="flex: none; width: auto;">type:</span>
+                      <select v-model="linkType" class="field-select" style="width: 130px;">
+                        <option value="bezier">bezier</option>
+                        <option value="straight">straight</option>
+                        <option value="orthogonal">orthogonal</option>
+                      </select>
+                    </div>
+                    <!-- style 下拉 -->
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span class="control-label" style="flex: none; width: auto;">style:</span>
+                      <select v-model="linkStyle" class="field-select" style="width: 100px;">
+                        <option value="dotted">dotted</option>
+                        <option value="solid">solid</option>
+                      </select>
+                    </div>
+                    <!-- color -->
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span class="control-label" style="flex: none; width: auto;">color:</span>
+                      <input v-model="linkColor" type="color" class="control-input" style="width: 36px; height: 30px; padding: 2px; cursor: pointer;" />
+                      <input v-model="linkColor" type="text" class="control-input" style="width: 80px;" />
+                    </div>
+                    <!-- highlightColor -->
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span class="control-label" style="flex: none; width: auto;">highlightColor:</span>
+                      <input v-model="linkHighlightColor" type="color" class="control-input" style="width: 36px; height: 30px; padding: 2px; cursor: pointer;" />
+                      <input v-model="linkHighlightColor" type="text" class="control-input" style="width: 80px;" />
+                    </div>
+                    <!-- width -->
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span class="control-label" style="flex: none; width: auto;">width:</span>
+                      <input v-model.number="linkWidth" type="number" min="1" max="10" step="1" class="control-input" style="width: 60px;" />
+                    </div>
+                    <!-- highlightWidth -->
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span class="control-label" style="flex: none; width: auto;">highlightWidth:</span>
+                      <input v-model.number="linkHighlightWidth" type="number" min="1" max="10" step="1" class="control-input" style="width: 60px;" />
                     </div>
                   </div>
                 </div>
@@ -2492,13 +2714,16 @@ const handleCustomMenuAction = (action: string, task: Task) => {
         :milestones="milestones"
         :resources="resources"
         :view-mode="viewMode"
+        :available-view-modes="['task', 'resource', 'calendar', 'resource-usage']"
         :resource-list-config="resourceListConfig"
+        :resource-usage-props="resourceUsageProps"
         :locale="controlMode === 'props' ? propsLocale : undefined"
         :time-scale="controlMode === 'props' ? propsTimeScale : undefined"
         :fullscreen="controlMode === 'props' ? propsFullscreen : undefined"
         :expand-all="controlMode === 'props' ? propsExpandAll : undefined"
         :toolbar-config="toolbarConfig"
         :task-list-config="taskListConfig"
+        :link-config="linkConfig"
         :enable-task-list-collapsible="enableTaskListCollapsible"
         :task-list-visible="enableTaskListCollapsible ? taskListVisible : undefined"
         :task-bar-config="taskBarConfig"
@@ -2515,6 +2740,7 @@ const handleCustomMenuAction = (action: string, task: Task) => {
         :task-list-column-render-mode="taskListColumnRenderMode"
         :show-actual-taskbar="showActualTaskBar"
         :enable-task-bar-tooltip="true"
+        :milestone-label-position="milestoneLabelPosition"
         :pending-task-background-color="pendingTaskBackgroundColor"
         :delay-task-background-color="delayTaskBackgroundColor"
         :complete-task-background-color="completeTaskBackgroundColor"
@@ -2522,6 +2748,7 @@ const handleCustomMenuAction = (action: string, task: Task) => {
         :use-default-drawer="useDefaultDrawer"
         :enable-task-drawer-auto-close="false"
         :enable-parent-task-auto-schedule="enableParentAutoSchedule"
+        :enable-resource-lane-stacking="true"
         @milestone-saved="handleMilestoneSaved"
         @milestone-deleted="handleMilestoneDeleted"
         @milestone-icon-changed="handleMilestoneIconChanged"
@@ -2549,6 +2776,7 @@ const handleCustomMenuAction = (action: string, task: Task) => {
         @task-updated="handleTaskUpdateEvent"
         @task-row-moved="handleTaskRowMoved"
         @resource-drag-end="handleResourceDragEnd"
+        @calendar-task-move="handleCalendarTaskMove"
       >
         <!-- 自定义任务名称内容 (TaskRow 和 TaskBar) -->
         <template #custom-task-content="item">
@@ -2622,7 +2850,7 @@ const handleCustomMenuAction = (action: string, task: Task) => {
         </template>
 
         <!-- 使用 TaskListColumn 组件自定义列 声明式模式 -->
-        <TaskListColumn prop="name" :label="viewMode === 'task' ? t.taskName : t.resourceName" width="300" align="center">
+        <TaskListColumn prop="name" fixed="left" :label="viewMode === 'task' ? t.taskName : t.resourceName" width="300" align="center">
           <template #header>
             <img src="https://foruda.gitee.com/avatar/1764902889653058860/565633_nelson820125_1764902889.png!avatar200" width="32" height="32" style="border-radius: 50%;" />
             <strong style="font-size: 14px;">{{ viewMode === 'task' ? t.taskName : t.resourceName }}</strong>
@@ -2723,7 +2951,7 @@ const handleCustomMenuAction = (action: string, task: Task) => {
               </div>
               <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px;">
                 <span style="opacity: 0.9;">🏁 结束：</span>
-                <span style="font-weight: 500;">{{ task.endDate?.slice(0, 10) ?? '-' }}</span>
+                <span style="font-weight: 500;">{{ formatEndDateOnly(task.endDate) }}</span>
               </div>
               <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px;">
                 <span style="opacity: 0.9;">📊 进度：</span>
@@ -2852,7 +3080,7 @@ const handleCustomMenuAction = (action: string, task: Task) => {
                   </div>
                   <div style="display: flex; justify-content: space-between; color: #666;">
                     <span>🏁 计划结束</span>
-                    <span style="color: #333; font-weight: 500;">{{ task.endDate?.slice(0, 10) ?? '-' }}</span>
+                    <span style="color: #333; font-weight: 500;">{{ formatEndDateOnly(task.endDate) }}</span>
                   </div>
                   <template v-if="task.actualStartDate || task.actualEndDate">
                     <div style="border-top: 1px solid #f0f0f0; margin: 2px 0;"/>
@@ -2862,7 +3090,7 @@ const handleCustomMenuAction = (action: string, task: Task) => {
                     </div>
                     <div v-if="task.actualEndDate" style="display: flex; justify-content: space-between; color: #888;">
                       <span>✅ 实际结束</span>
-                      <span style="color: #555; font-weight: 500;">{{ task.actualEndDate?.slice(0, 10) }}</span>
+                      <span style="color: #555; font-weight: 500;">{{ formatEndDateOnly(task.actualEndDate) }}</span>
                     </div>
                   </template>
                 </div>
@@ -2948,6 +3176,42 @@ const handleCustomMenuAction = (action: string, task: Task) => {
                 "
               >✨ 自定义 Milestone Tooltip</div>
             </div>
+          </div>
+        </template>
+
+        <!-- ── Milestone 自定义内容 Slot（custom-milestone-content，v1.13.5）────────── -->
+        <!-- 示例演示如何利用 slot 暴露的 labelPosition 自行调整布局：与内置图标+标签的实现
+             方式保持一致——"图标"（🏳️）始终固定在锚点位置（relative 容器的左上角，不受
+             labelPosition 影响，磁吸/定位逻辑均以此为准），文本标签改为绝对定位相对该锚点
+             向外叠加展示，不参与布局计算，不会反过来推挤/偏移图标本身的位置。 -->
+        <template
+          v-if="useCustomMilestoneContent"
+          #custom-milestone-content="{ milestone, task, labelPosition }"
+        >
+          <div style="position: relative; display: inline-block; cursor: pointer;">
+            <!-- <span style="font-size: 16px; display: block;">🏳️</span> -->
+             <svg class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="20" height="20"><path d="M868.032 160h-92.032v-40A8 8 0 0 0 768 112H256a8 8 0 0 0-8 8V160H155.968a44.032 44.032 0 0 0-43.968 44.032V352c0 81.728 60.032 149.632 138.24 161.984a256.32 256.32 0 0 0 225.728 220.544v105.152H280.064a32 32 0 0 0-32 32v32.32c0 4.416 3.584 8 8 8h512a8 8 0 0 0 8-8v-32.32a32 32 0 0 0-32-32H547.968v-105.152a256.32 256.32 0 0 0 225.856-220.544A164.288 164.288 0 0 0 912 352V203.968a44.032 44.032 0 0 0-44.032-43.968z m-684.032 192V232h64v207.616c-37.12-11.84-64-46.592-64-87.616zM704 480c0 49.088-19.072 95.36-53.888 130.112a182.784 182.784 0 0 1-130.112 53.888h-16c-49.088 0-95.36-19.072-130.112-53.888A182.784 182.784 0 0 1 320 480V184h384V480z m136-128c0 40.96-26.88 75.776-64 87.616V232h64V352z" fill="#d81e06"></path></svg>
+             <!-- <span style="position: absolute; white-space: nowrap; font-size: 10px; font-weight: bold; color: #f56c6c; top: 100%; left: 50%; transform: translateX(-50%);">
+              {{ milestone.name }}{{ task?.assigneeName ? `（${task.assigneeName}）` : '' }}
+            </span> -->
+            <span
+              :style="{
+                position: 'absolute',
+                whiteSpace: 'nowrap',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                color: '#f56c6c',
+                ...(labelPosition === 'top'
+                  ? { bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '2px' }
+                  : labelPosition === 'bottom'
+                    ? { top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: '2px' }
+                    : labelPosition === 'left'
+                      ? { right: '100%', top: '50%', transform: 'translateY(-50%)', marginRight: '4px' }
+                      : { left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: '4px' }),
+              }"
+            >
+              {{ milestone.name }}{{ task?.assigneeName ? `（${task.assigneeName}）` : '' }}
+            </span>
           </div>
         </template>
 
@@ -4287,6 +4551,70 @@ const handleCustomMenuAction = (action: string, task: Task) => {
 .sponsor-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 14px rgba(255, 107, 107, 0.45);
+}
+
+.sponsors-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, #ff9ec4 0%, #ff6b9d 100%);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  padding: 5px 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(255, 107, 157, 0.3);
+  line-height: 1.4;
+}
+
+.sponsors-count-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(255, 107, 157, 0.45);
+}
+
+.sponsors-list-dialog {
+  width: 480px;
+}
+
+.sponsors-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.sponsors-table th,
+.sponsors-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.85rem;
+}
+
+.sponsors-table th {
+  color: #888;
+  font-weight: 600;
+}
+
+.sponsors-table td a {
+  color: #333;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.sponsors-table td a:hover {
+  color: var(--gantt-primary-color, #409eff);
+}
+
+.sponsor-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 
 .sponsor-overlay {

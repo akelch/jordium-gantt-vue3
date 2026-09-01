@@ -5,6 +5,118 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.5] - 2026-08-16
+
+### Added
+- 🎉 新增：`MilestonePoint` 新增 `custom-milestone-content` 插槽，可完整自定义里程碑图标+标签的渲染内容（非破坏性变更，不使用该插槽时行为不变）
+- 🎉 新增：`milestoneLabelPosition` 属性（`GanttChart`/`Timeline`），支持配置里程碑标签展示位置 `'left' | 'top' | 'right' | 'bottom'`，默认 `'right'`（与改造前行为一致）
+- 🎉 新增：`Resource` 接口新增 `title` 字段（资源职务/头衔，自由文本）
+- 🎉 新增：`AssigneeOption`（`assigneeOptions`）新增可选 `type` 字段，选中资源时自动带出类别到资源绑定行
+- 🎉 新增：`TaskDrawer` 资源分配表单新增"类别"下拉（人力/设备/其他）
+- 🎉 新增：`GanttChart` 新增 `resourceTypeOptions` 属性，支持外部自定义 TaskDrawer 资源分配行“类别”下拉的选项集合（替换内置 Human/Device/Others，`label` 完全由外部提供，可实现多语言）
+- 🎉 新增：`GanttChart` 新增 `showResourceTypeOption` 属性（默认 `true`），可完全隐藏该类别下拉列
+- 🎉 Added: `MilestonePoint` now supports a `custom-milestone-content` slot to fully customize the milestone icon and label rendering (non-breaking; existing behavior is unchanged when the slot is not used)
+- 🎉 Added: New `milestoneLabelPosition` property (on `GanttChart`/`Timeline`) to configure the milestone label position `'left' | 'top' | 'right' | 'bottom'`, defaulting to `'right'` (matches the previous hardcoded behavior)
+- 🎉 Added: `Resource` interface gained a new `title` field (job title/role, free text)
+- 🎉 Added: `AssigneeOption` (`assigneeOptions`) gained an optional `type` field that auto-fills the category on the bound resource row when a resource is selected;
+- 🎉 Added: `TaskDrawer` resource allocation form now includes a "Category" dropdown (Human/Device/Others)
+- 🎉 Added: `GanttChart` now supports a `resourceTypeOptions` property, allowing external customization of the option set for the TaskDrawer resource allocation row's "category" dropdown (replaces the built-in Human/Device/Others; `label` is fully controlled externally, enabling i18n)
+- 🎉 Added: `GanttChart` supports a `showResourceTypeOption` property (default `true`) to fully hide this category dropdown
+
+### Changed
+- ⚠️ 行为微调（非破坏性）：里程碑的点击/双击/拖拽/悬浮 Tooltip 等交互事件监听器统一绑定到最外层容器，可交互响应区域从"仅图标 24×24"扩大为"图标+标签整个区域"
+- ⚠️ **<span style="color:red">Breaking Change</span>**：`Resource.type` 字段语义调整。为支持资源分类（人力/设备/其他），`type` 字段语义从"自由文本描述"调整为"资源类别"，原本存放在 `type` 里的职位/头衔信息请迁移到新增的 `title` 字段：
+  - 升级前：`{ type: '前端工程师' }`
+  - 升级后：`{ title: '前端工程师', type: 'Human' }`
+  - **<span style="color:red">本次不提供运行时自动兼容</span>**（不会把旧的 `type` 值自动读取为 `title`），请在升级前手动迁移你自己的资源数据源，否则「职务」列会显示为空、「类别」列会显示原本的职位文本。若未设置 `type`，组件内部默认按 `'Human'` 处理（不影响不关心该分类功能的现有项目）。
+  - `ResourceListConfig` 默认列同步调整：新增"职务"列（对应 `title`），原"资源类型"列标签改为"类别"（对应 `type`），列顺序调整为 职务 → 类别 → 部门 → 利用率
+- ⚠️ Minor behavior change (non-breaking): milestone interaction handlers (click/double-click/drag/hover tooltip) are now bound on the outermost container, expanding the interactive hit area from "icon only (24×24)" to "the entire icon + label region"
+- ⚠️ **<span style="color:red">Breaking Change</span>**: `Resource.type` field semantics changed. To support resource categorization (Human/Device/Others), the semantics of `type` changed from "free-text description" to "resource category". Please migrate any job-title/role text previously stored in `type` to the new `title` field:
+  - Before: `{ type: 'Frontend Engineer' }`
+  - After: `{ title: 'Frontend Engineer', type: 'Human' }`
+  - **<span style="color:red">No automatic runtime fallback is provided</span>** (the old `type` value will NOT be read as `title`). Please migrate your resource data before upgrading, otherwise the "title" column will be empty and the "category" column will show your old job-title text. If `type` is not set, it defaults to `'Human'` internally (no impact on existing projects that don't use this new categorization).
+  - `ResourceListConfig` default columns updated accordingly: added a "title" column (maps to `title`), the previous "Resource Type" column label changed to "Category" (maps to `type`), column order changed to Title → Category → Department → Utilization
+
+### Fixed
+- 🔧 修复：同一资源的任务冲突检测误判问题
+- 🔧 Fixed: Incorrect same-resource task conflict detection
+
+## [1.13.4] - 2026-08-03
+
+### Added
+- 🎉 新增：`taskbarDescFixed`属性，支持是否固定Taskbar内部内容，不跟随timeline横向移动而产生左右边吸附效果
+- 🎉 Added: Introduced the `taskbarDescFixed` property to control whether the content inside the Taskbar remains fixed instead of moving horizontally with the timeline, avoiding the left/right edge snapping effect.
+
+## [1.13.3] - 2026-07-31
+
+### Fixed
+- 🔧 修复：Package.json打包时出现export拦截问题
+- 🔧 Fixed: Resolved package export issues during npm building
+
+## [1.13.2] - 2026-07-20
+
+### Added
+- 🔧 修复：资源视图中`日`维度下今日定位和Taskbar消失的问题
+- 🔧 Fixed: Today's positioning and Taskbar disappearance issue in the 'Day' view of the Resource view
+
+## [1.13.0] - 2026-07-19
+
+### Added
+- 🎉 新增：`CalendarView` 日历视图组件（日/周/月三种维度），支持按资源拖拽选区创建任务、当前时间指示线、全天任务行、工作时间高亮等
+- 🎉 新增：`CalendarView`/`CalendarDayView`/`CalendarWeekView` 新增 `taskCardOpacity`、`taskAccentWidth`、`allDayLabel` 属性以及 `#task-card` 插槽，支持自定义任务卡片外观（默认为半透明蓝色底 + 左侧 5px 深色强调条）
+- 🎉 新增：GanttChart 可通过 `calendarProps` 透传上述所有 CalendarView 属性
+- 🎉 新增：`CalendarView` 新增 `task-click`/`task-move` 事件（GanttChart 转发为 `calendar-task-click`/`calendar-task-move`），日/周/月视图的任务卡片支持单击（打开内置 TaskDrawer 编辑）与左键拖拽移动（日视图改时段、周视图改时段+跨日、月视图跨日期 cell），拖拽中任务卡片高亮凸显
+- 🎉 新增：`ResourceUsageView`资源利用率组件（日/周/月三种维度）, 以资源为单位汇总各个维度的分配工时，并配置不同颜色表示利用率级别
+- 🎉 新增：GanttChart 的 `resourceUsageProps` 透传新增 `columnRenderMode`，并在 `view-mode="resource-usage"` 下转发默认插槽（用于声明式列定义），与 `TaskList` 分支保持一致
+
+### Added
+- 🎉 Added: New `CalendarView` calendar view component (Day/Week/Month three time dimensions), supporting drag-to-select task creation by resource, current time indicator line, all-day task row, working hours highlighting, and more
+- 🎉 Added: Added `taskCardOpacity`, `taskAccentWidth`, `allDayLabel` properties and the `#task-card` slot to `CalendarView`/`CalendarDayView`/`CalendarWeekView`, enabling customization of task card appearance (default: semi-transparent blue background with a 5px dark accent bar on the left)
+- 🎉 Added: `GanttChart` now supports passing through all the above `CalendarView` properties via `calendarProps`
+- 🎉 Added: Added `task-click`/`task-move` events to `CalendarView` (`GanttChart` forwards them as `calendar-task-click`/`calendar-task-move`). Task cards in Day/Week/Month views now support single-click actions (opening the built-in `TaskDrawer` for editing) and left-click drag-and-drop movement (Day view: change time slot; Week view: change time slot and move across days; Month view: move across date cells). The dragged task card is highlighted during the drag operation
+- 🎉 Added: New `ResourceUsageView` resource utilization component (Day/Week/Month three time dimensions), which aggregates allocated working hours by resource across different dimensions and uses different colors to represent utilization levels
+- 🎉 Added: `GanttChart`'s `resourceUsageProps` now supports passing through the new `columnRenderMode`. When `view-mode="resource-usage"` is enabled, the default slot is forwarded (for declarative column definitions), keeping it consistent with the `TaskList` branch
+
+## [1.12.4] - 2026-06-27
+
+### Added
+- 🔧 修复：GanttToolbar中Default TimeScalesKeys缺少季度
+- 🔧 修复：GanttToolbar中视图模式Segmented Control 样式问题
+- 🔧 Fixed: GanttToolbar Default TimeScalesKeys missing quarter
+- 🔧 Fixed: GanttToolbar Segmented Control style issue
+
+## [1.12.3] - 2026-06-27
+
+### Added
+- 🔧 修复：GanttToolbar中Segmented Control 样式问题
+- 🔧 Fixed: GanttToolbar Segmented Control style issue
+
+## [1.12.2] - 2026-06-25
+
+### Added
+- 🔧 修复：Socket.dev提示组件库弱点问题，PDF导出时使用了innerHTML，存在XSS攻击风险
+- 🔧 Fixed: Socket.dev warning about component library vulnerability, PDF export using innerHTML, XSS attack risk
+
+## [1.12.1] - 2026-06-25
+
+### Added
+- 🎉 新增：`LinkConfig` 配置类型，支持连线样式切换（`bezier` 贝塞尔 / `straight` 直线 / `orthogonal` 折线），支持自定义连线颜色、线宽、虚线/实线样式
+- 🎉 新增：GanttChart 暴露 `setLinkConfig(config)` 和 `getLinkConfig()` 方法，支持运行时动态切换连线样式和颜色
+- 🎉 新增：`TaskListColumnConfig` 和 `TaskListColumn` 新增 `fixed` 字段，支持左侧表格列固定（`'left'` / `'right'` / `boolean`）。`fixed:'left'` 的列自动重排至最左侧，任务名称列始终固定在 `left:0`，支持多个左侧固定列按宽度累加偏移
+- 🎉 Added: `LinkConfig` type — switch link line style between `bezier`, `straight`, and `orthogonal`; customise link color, width, and dotted/solid style
+- 🎉 Added: GanttChart exposes `setLinkConfig(config)` and `getLinkConfig()` methods for runtime dynamic link style switching
+- 🎉 Added: `TaskListColumnConfig` and `TaskListColumn` new `fixed` field — sticky table columns (`'left'` / `'right'` / `boolean`). Left-fixed columns auto-reorder to the far left; task name column always sticks at `left:0`; multiple left-fixed columns offset cumulatively
+
+## [1.12.0] - 2026-06-23
+
+### Added
+- 🎉 新增：GanttChart 新增 `enableResourceLaneStacking` 属性，控制资源视图的车道堆叠行为。`true`（默认）：启用贪心车道堆叠；`false`：禁用堆叠，每个任务独占一行
+- 🎉 新增：`TaskBarConfig` 新增 `titlePosition` 字段，控制任务标题渲染位置。`'inside'`（默认）：标题渲染在任务条内部；`'above'`：标题悬浮在任务条上方，条内仅显示进度百分比
+- 🎉 新增：库构建集成 `vite-plugin-dts`，`build:lib` 现可自动生成 TypeScript 声明文件（`index.d.ts` 及各组件 `.vue.d.ts`），TypeScript 消费者可获得完整的类型提示与 IDE 自动补全
+- 🎉 Added: GanttChart new prop `enableResourceLaneStacking` — controls lane stacking behavior in Resource View. `true` (default): greedy lane packing; `false`: each task occupies its own row
+- 🎉 Added: `TaskBarConfig` new field `titlePosition` — controls task title render position. `'inside'` (default): title rendered inside the bar; `'above'`: title floats above the bar with only the progress percentage shown inside
+- 🎉 Added: Library build now integrates `vite-plugin-dts` — `build:lib` automatically generates TypeScript declaration files (`index.d.ts` and per-component `.vue.d.ts`), providing full type hints and IDE autocomplete for TypeScript consumers
+
 ## [1.11.6] - 2026-06-16
 
 ### Fixed

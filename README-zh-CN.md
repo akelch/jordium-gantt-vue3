@@ -69,6 +69,12 @@
   </p>
 </div>
 
+<div style="background-color: #fff0f0; padding: 10px 10px 2px 10px; border: 1px solid #ffccc7">
+  <p>
+    <b style="color:red">⚠️ 重要提示（升级前必读）: </b>若要版本升级到 <b>v1.13.5</b> 及以上，<code>Resource</code> 接口的 <code>type</code> 字段语义发生了变更（自由文本 → 资源类别 Human/Device/Others），原来存放在 <code>type</code> 里的职务/头衔信息不会自动迁移，请务必在升级前将其迁移到新增的 <code>title</code> 字段，否则会导致「职务」列显示为空、「类别」列显示异常文本。详见 <a href="#resource-数据结构">Resource 数据结构</a> 章节的 Breaking Change 说明。
+  </p>
+</div>
+
 ---
 
 ## ✨ 简介
@@ -127,7 +133,8 @@ pnpm add jordium-gantt-vue3
 ```vue
 <script setup lang="ts">
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css' // 即将废弃
+import 'jordium-gantt-vue3/index.css' // 推荐使用，更规范
 </script>
 ```
 
@@ -147,7 +154,7 @@ import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const tasks = ref([
   {
@@ -186,8 +193,8 @@ const milestones = ref([
 </script>
 ```
 
-🎯 **[立即体验 Github在线Demo →](https://nelson820125.github.io/jordium-gantt-vue3/)**
-<span><strong>推荐使用 <a href="https://dovee.cc/a.php?anaxjgyz1ozZq2B">DOVE</a> VPN，快速、稳定。</strong></span> <span style="color:red;">（注意：请合法使用 VPN 资源）</span>
+<!-- 🎯 **[立即体验 Github在线Demo →](https://nelson820125.github.io/jordium-gantt-vue3/)**
+<span><strong>推荐使用 <a href="https://dovee.cc/a.php?anaxjgyz1ozZq2B">DOVE</a> VPN，快速、稳定。</strong></span> <span style="color:red;">（注意：请合法使用 VPN 资源）</span> -->
 
 ## 🌞 NPM包使用示例
 
@@ -215,7 +222,10 @@ npm run dev
 | `tasks`                     | `Task[]`                                                                                  | `[]`    | 任务数据数组                                                   |
 | `milestones`                | `Task[]`                                                                                  | `[]`    | 里程碑数据数组（注意：类型为 Task[]，需设置 type='milestone'） |
 | `resources` ![v1.9.0](https://img.shields.io/badge/v1.9.0-409EFF?style=flat-square&labelColor=ECF5FF) | `Resource[]`                                                                              | `[]`    | 资源数据数组（资源计划视图使用）                               |
-| `viewMode` ![v1.9.0](https://img.shields.io/badge/v1.9.0-409EFF?style=flat-square&labelColor=ECF5FF) | `'task' \| 'resource'`                                                                    | `'task'` | 视图模式：'task' 任务计划视图 \| 'resource' 资源计划视图      |
+| `viewMode` ![v1.9.0](https://img.shields.io/badge/v1.9.0-409EFF?style=flat-square&labelColor=ECF5FF) | `'task' \| 'resource' \| 'calendar' \| 'resource-usage'`                                  | `'task'` | 视图模式：'task' 任务计划视图 \| 'resource' 资源计划视图 \| 'calendar' 日历视图 ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) \| 'resource-usage' 资源工时视图 ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) |
+| `availableViewModes` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `Array<'task' \| 'resource' \| 'calendar' \| 'resource-usage'>` | `['task', 'resource']` | 工具栏实际展示可切换的视图模式按钮，默认仅显示 task/resource（与升级前行为一致）；如需开放日历/资源工时视图，需显式加入 `'calendar'` / `'resource-usage'` |
+| `calendarProps` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `Partial<CalendarView 属性>` | `undefined` | `viewMode='calendar'` 时透传给内部 `CalendarView` 组件的专属属性（如 `taskCardOpacity`、`allDayLabel` 等），完整属性详见 [CalendarView 组件](#calendarview-组件) 章节，穿透机制详见 [CalendarView 专属配置](#calendarview-专属配置calendarprops) |
+| `resourceUsageProps` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `Partial<ResourceUsageView 属性>` | `undefined` | `viewMode='resource-usage'` 时透传给内部 `ResourceUsageView` 组件的专属属性（如 `overloadColor`、`columnRenderMode` 等），完整属性详见 [ResourceUsageView 组件](#resourceusageview-组件资源工时视图) 章节，穿透机制详见 [ResourceUsageView 专属配置](#resourceusageview-专属配置resourceusageprops) |
 | `showToolbar`               | `boolean`                                                                                 | `true`  | 是否显示工具栏                                                 |
 | `useDefaultDrawer`          | `boolean`                                                                                 | `true`  | 是否使用内置任务编辑抽屉（TaskDrawer）                         |
 | `useDefaultMilestoneDialog` | `boolean`                                                                                 | `true`  | 是否使用内置里程碑编辑对话框（MilestoneDialog）                |
@@ -224,7 +234,9 @@ npm run dev
 | `enableTaskRowMove`         | `boolean`                                                                                 | `false` | 是否允许拖拽和摆放TaskRow                                      |
 | `enableTaskListContextMenu` | `boolean`                                                                                 | `true`  | 是否启用 TaskList（TaskRow）右键菜单功能。为 `true` 时：未声明 `task-list-context-menu` 插槽则使用内置菜单，声明了插槽则使用自定义菜单；为 `false` 时右键菜单完全禁用                     |
 | `enableTaskBarContextMenu`  | `boolean`                                                                                 | `true`  | 是否启用 TaskBar 右键菜单功能。为 `true` 时：未声明 `task-bar-context-menu` 插槽则使用内置菜单，声明了插槽则使用自定义菜单；为 `false` 时右键菜单完全禁用                               |
-| `assigneeOptions`           | `Array<{ key?: string \| number; value: string \| number; label: string }>`               | `[]`    | 任务编辑抽屉中负责人下拉菜单的选项列表          |
+| `assigneeOptions`           | `Array<{ key?: string \| number; value: string \| number; label: string; avatar?: string; type?: string ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) }>`               | `[]`    | 任务编辑抽屉中负责人下拉菜单的选项列表。`type` 为可选的资源类别（Human/Device/Others），选中资源时会级联预填到资源绑定行的类别字段          |
+| `resourceTypeOptions` ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) | `ResourceTypeOption[]`（`{ value: string; label: string }`） | `[]`    | 自定义 TaskDrawer 资源分配行"类别"下拉的可选项集合，不设置或传空数组时使用内置的 人力(Human)/设备(Device)/其他(Others)。`label` 完全由外部提供，可实现自定义类别集合或多语言。详见下方「自定义资源类别」示例 |
+| `showResourceTypeOption` ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean`             | `true`  | 是否展示 TaskDrawer 资源分配行的"类别"下拉选项。设为 `false` 可完全隐藏该列（仍会按 `'Human'` 默认写入 `resource.type`，不影响数据本身） |
 | `locale` ![v1.7.1](https://img.shields.io/badge/v1.7.1-409EFF?style=flat-square&labelColor=ECF5FF) | `'zh-CN' \| 'en-US'`                                                                      | `'zh-CN'` | 语言设置（响应式）。设置后组件内部语言将跟随变化                |
 | `theme` ![v1.7.1](https://img.shields.io/badge/v1.7.1-409EFF?style=flat-square&labelColor=ECF5FF) | `'light' \| 'dark'`                                                                       | `'light'` | 主题模式（响应式）。设置后组件主题将跟随变化                    |
 | `timeScale` ![v1.7.1](https://img.shields.io/badge/v1.7.1-409EFF?style=flat-square&labelColor=ECF5FF) | `'hour' \| 'day' \| 'week' \| 'month' \| 'quarter' \| 'year'`                             | `'week'` | 时间刻度（响应式）。设置后时间线刻度将跟随变化                  |
@@ -238,6 +250,7 @@ npm run dev
 | `showActualTaskbar` ![v1.8.0](https://img.shields.io/badge/v1.8.0-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean`                                                                                 | `false` | 是否显示实际TaskBar（在计划TaskBar下方显示实际执行进度）  |
 | `enableTaskbarTooltip` ![v1.8.0](https://img.shields.io/badge/v1.8.0-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean`                                                                                 | `true` | 是否启用TaskBar悬停提示框（鼠标悬停显示任务详情）  |
 | `enableMilestoneTooltip` ![v1.10.2](https://img.shields.io/badge/v1.10.2-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean`                                                                                 | `true` | 是否启用里程碑悬停提示框（鼠标悬停显示里程碑名称和日期）  |
+| `milestoneLabelPosition` ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) | `'left' \| 'top' \| 'right' \| 'bottom'` | `'right'` | 里程碑标签相对于图标（或自定义 `custom-milestone-content` 插槽内容）的展示位置，默认值与改造前的硬编码行为一致 |
 | `showConflicts` ![v1.9.0](https://img.shields.io/badge/v1.9.0-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean`                                                                                 | `true` | 是否显示资源冲突可视化层（资源视图下显示斜纹背景标识超载区域） |
 | `showTaskbarTab` ![v1.9.0](https://img.shields.io/badge/v1.9.0-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean`                                                                                 | `true` | 是否显示TaskBar上的资源Tab标签（资源视图下TaskBar的资源分配标签） |
 | `enableTaskListCollapsible` ![v1.9.2](https://img.shields.io/badge/v1.9.2-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean`                                                                                 | `true` | 是否允许折叠/展开 TaskList 面板。`false` 时强制隐藏 TaskList、SplitterBar 及折叠按钮，Timeline 独占全宽 |
@@ -245,6 +258,9 @@ npm run dev
 | `enableTaskDrawerAutoClose` ![v1.9.3](https://img.shields.io/badge/v1.9.3-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean`                                                                                 | `true` | 是否允许 TaskDrawer 自动关闭（外总点击或按 Esc 时自动关闭）。设为 `false` 时禁用自动关闭，仅可通过内部按钮手动关闭 |
 | `rowHeight` ![v1.11.4](https://img.shields.io/badge/v1.11.4-409EFF?style=flat-square&labelColor=ECF5FF) | `number` | `51` | 行高（px），Timeline 和 TaskList 共用同一行高。有效区间：`30`～`60`，超出范围的值将被自动截断（小于 30 截断至 30，大于 60 截断至 60）。当设置小于 40 时，TaskBar 内的任务名称和进度将自动切换为紧凑横排布局以适应小行高 |
 | `enableParentTaskAutoSchedule` ![v1.11.5](https://img.shields.io/badge/v1.11.5-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean` | `true` | 是否开启父任务自动调度。`true`：父任务的 TaskBar 时间窗口自动跟随子任务的最早开始／最晚结束日期同步拉伸。`false`：父任务显示自身配置的固定日期范围，子任务超出时其 TaskBar 上方显示红色指示线 |
+| `enableResourceLaneStacking` ![v1.12.0](https://img.shields.io/badge/v1.12.0-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean` | `true` | 资源视图车道堆叠模式。`true`：启用贪心车道堆叠——时间不重叠的任务共享同一行，最大化空间利用率。`false`：禁用堆叠——每个任务独占一行，适合任务密集、需要清晰辨识的场景 |
+| `linkConfig` ![v1.12.1](https://img.shields.io/badge/v1.12.1-409EFF?style=flat-square&labelColor=ECF5FF) | `LinkConfig` | `undefined` | 连线样式配置。支持切换连线类型（贝塞尔/直线/折线）、自定义颜色、线宽及实线/虚线样式。详见 [LinkConfig 配置](#linkconfig-配置) |
+| `taskbarDescFixed` ![v1.13.4](https://img.shields.io/badge/v1.13.4-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean` | `false` | Taskbar的内容是否跟随Timeline进行横向滑动。`false`: 表示Taskbar的内容'标题'、'进度'、'头像'信息将跟随timeline横向滑动，在左右边界区域实现吸附的效果。`true`: 表示Taskbar的内容'标题'、'进度'、'头像'信息始终固定在taskbar的中心位置，接近timtline左右边界时，不出现吸附的效果 |
 
 #### TaskListColumn 属性
 
@@ -257,6 +273,7 @@ npm run dev
 | `width`    | `number \| string`             | -        | 列宽度。数字表示像素值（如 `200`），字符串支持百分比（如 `'20%'`）                                         |
 | `align`    | `'left' \| 'center' \| 'right'` | `'left'` | 列内容对齐方式                                                                                             |
 | `cssClass` | `string`                       | -        | 自定义 CSS 类名，用于列样式定制                                                                            |
+| `fixed` ![v1.12.1](https://img.shields.io/badge/v1.12.1-409EFF?style=flat-square&labelColor=ECF5FF) | `'left' \| 'right' \| boolean` | - | 列固定。`'left'`：列自动重排到最左侧并固定；`'right'`：列固定到最右侧。`true` 等效于 `'left'` |
 
 **使用示例**：
 
@@ -273,10 +290,36 @@ npm run dev
 </GanttChart>
 ```
 
+**固定列示例**（`fixed` 属性）：
+
+```vue
+<GanttChart 
+  :tasks="tasks" 
+  task-list-column-render-mode="declarative"
+>
+  <!-- 第一列（名称列）始终固定在 left:0 -->
+  <TaskListColumn prop="name" label="任务名称" width="300" />
+
+  <!-- fixed="left"：排到名称列右侧并固定，多个左固定列按宽度累加偏移 -->
+  <TaskListColumn prop="assignee" label="负责人" width="150" fixed="left" />
+
+  <!-- fixed（无值）：等同于 fixed="left" -->
+  <TaskListColumn prop="predecessor" label="前置任务" width="120" fixed />
+
+  <!-- 普通列：随表格横向滚动 -->
+  <TaskListColumn prop="startDate" label="开始日期" width="140" />
+  <TaskListColumn prop="endDate" label="结束日期" width="140" />
+
+  <!-- fixed="right"：固定在表格最右侧 -->
+  <TaskListColumn prop="progress" label="进度" width="100" fixed="right" />
+</GanttChart>
+```
+
 > **💡 提示**：
 > - `TaskListColumn` 组件本身不渲染任何内容，仅用于声明列配置
 > - 必须在 `GanttChart` 组件内部使用，且设置 `task-list-column-render-mode="declarative"`
-> - 列的显示顺序由 `TaskListColumn` 组件的声明顺序决定
+> - 列的显示顺序由 `TaskListColumn` 组件的声明顺序决定，但 `fixed` 列会自动重排：`fixed='left'` 排到最左，`fixed='right'` 排到最右
+> - `fixed` 无值写法（如 `<TaskListColumn fixed />`）等同于 `fixed="left"`
 > - 关于列内容自定义和插槽的详细使用方法，请参考 [插槽 (Slots)](#插槽-slots) 章节
 
 #### TaskListContextMenu 属性
@@ -416,6 +459,8 @@ npm run dev
 
 - **任务相关事件**：参见下方 [任务管理](#任务管理) 章节
 - **里程碑相关事件**：参见下方 [里程碑管理](#里程碑管理) 章节
+- **日历视图相关事件** ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF)：参见下方 [CalendarView 组件](#calendarview-组件) 章节
+- **资源工时视图相关事件** ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF)：参见下方 [ResourceUsageView 组件](#resourceusageview-组件资源工时视图) 章节
 
 **事件列表总览：**
 
@@ -440,6 +485,20 @@ npm run dev
 | `milestone-drag-end`     | `(milestone: Task)`               | 拖拽里程碑结束             |
 | `task-row-moved`     | `payload: { draggedTask: Task, targetTask: Task, position: 'after' \| 'child', oldParent: Task \| null, newParent: Task \| null }` | 拖拽TaskRow结束（可选） |
 | `taskbar-resource-change` ![v1.9.0](https://img.shields.io/badge/v1.9.0-409EFF?style=flat-square&labelColor=ECF5FF) | `payload: { task: Task, oldResourceId: string \| number, newResourceId: string \| number }` | 任务跨资源移动事件（资源视图下拖拽任务到另一资源行） |
+| `view-mode-changed` ![v1.9.0](https://img.shields.io/badge/v1.9.0-409EFF?style=flat-square&labelColor=ECF5FF) | `(mode: 'task' \| 'resource' \| 'calendar' \| 'resource-usage')` | 视图模式切换后触发（点击工具栏视图切换按钮或 `viewMode` 属性变化时） |
+| `resource-drag-end` ![v1.9.0](https://img.shields.io/badge/v1.9.0-409EFF?style=flat-square&labelColor=ECF5FF) | `(task: Task)` | 资源视图下垂直拖拽任务结束后触发 |
+| `calendar-selection-complete` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `CalendarSelectionRange` | 日历视图拖拽选区确认后触发（`CalendarView` 的 `selection-complete` 转发） |
+| `calendar-selection-cancel` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `{ reason }` | 日历视图拖拽选区取消后触发 |
+| `calendar-resource-change` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `{ next, prev }` | 日历视图选中资源变更后触发 |
+| `calendar-view-change` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `{ next, prev }` | 日历视图日/周/月切换后触发 |
+| `calendar-date-change` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `{ next, prev }` | 日历视图锚点日期变更后触发 |
+| `calendar-task-click` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `(task: Task, event: MouseEvent)` | 日历视图点击已创建任务卡片时触发 |
+| `calendar-task-move` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `CalendarTaskMovePayload` | 日历视图拖拽已创建任务卡片松开后触发 |
+| `resource-usage-scale-change` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `{ next, prev }` | 资源工时视图刻度切换后触发 |
+| `resource-usage-cell-click` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `ResourceUsageCellPayload` | 资源工时视图点击工时单元格时触发 |
+| `resource-usage-cell-hover` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `ResourceUsageCellPayload \| null` | 资源工时视图鼠标悬停/移出工时单元格时触发 |
+| `resource-usage-overload-detected` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `{ resourceId, periods }` | 资源工时视图检测到某资源存在超载周期时触发 |
+| `resource-usage-task-detail-click` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `ResourceUsageTaskDetailClickPayload` | 点击工时单元格 Tooltip 明细中的某个任务时触发，触发后自动切换回 `'task'` 视图并滚动定位到该任务 |
 
 #### 示例1：最简单的甘特图
 
@@ -453,7 +512,7 @@ npm run dev
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const tasks = ref([
   {
@@ -485,7 +544,7 @@ const assigneeOptions = ref([
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const tasks = ref([
   {
@@ -543,7 +602,7 @@ const assigneeOptions = ref([
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const tasks = ref([])
 const milestones = ref([])
@@ -623,7 +682,7 @@ const handleMilestoneSaved = milestone => {
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const tasks = ref([
   { id: 1, name: '任务1', startDate: '2025-01-01', endDate: '2025-01-10', progress: 50 },
@@ -639,6 +698,62 @@ const propsFullscreen = ref(false)
 const propsExpandAll = ref(false)
 </script>
 ```
+
+#### 示例5：通过 GanttChart 集成日历视图 / 资源工时视图（属性穿透）![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF)
+
+只需集成 `GanttChart` 一个组件即可开启全部四种视图，无需单独 `import` `CalendarView` / `ResourceUsageView`。通过 `availableViewModes` 控制工具栏展示哪些切换按钮，`viewMode` 受控切换当前视图，`calendarProps` / `resourceUsageProps` 将各视图专属属性穿透给内部组件。
+
+```vue
+<template>
+  <div style="height: 600px;">
+    <GanttChart
+      ref="ganttRef"
+      :tasks="tasks"
+      :resources="resources"
+      :view-mode="viewMode"
+      :available-view-modes="['task', 'resource', 'calendar', 'resource-usage']"
+      :calendar-props="{ taskCardOpacity: 0.25, taskAccentWidth: 4, allDayLabel: '全天' }"
+      :resource-usage-props="{ overloadThreshold: 100, underloadThreshold: 60, columnRenderMode: 'declarative' }"
+      @view-mode-changed="handleViewModeChanged"
+      @calendar-task-click="handleCalendarTaskClick"
+      @resource-usage-cell-click="handleResourceUsageCellClick"
+    >
+      <!-- resourceUsageProps.columnRenderMode='declarative' 时，声明式列写法与资源计划视图一致 -->
+      <TaskListColumn key="type" label="资源类型" />
+      <TaskListColumn key="department" label="部门" />
+    </GanttChart>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import { GanttChart, TaskListColumn } from 'jordium-gantt-vue3'
+import type { Task, Resource } from 'jordium-gantt-vue3'
+import 'jordium-gantt-vue3/index.css'
+
+const ganttRef = ref<InstanceType<typeof GanttChart>>()
+const viewMode = ref<'task' | 'resource' | 'calendar' | 'resource-usage'>('task')
+
+const tasks = ref<Task[]>([
+  { id: 1, name: '任务1', startDate: '2025-01-01', endDate: '2025-01-10', progress: 50 },
+])
+const resources = ref<Resource[]>([
+  { id: 'dev-001', name: '张三', title: 'developer', type: 'Human', department: '研发部', tasks: [] },
+])
+
+const handleViewModeChanged = (mode: typeof viewMode.value) => {
+  viewMode.value = mode
+}
+const handleCalendarTaskClick = (task: Task) => {
+  console.log('日历视图点击任务：', task)
+}
+const handleResourceUsageCellClick = (payload: any) => {
+  console.log('资源工时视图点击单元格：', payload)
+}
+</script>
+```
+
+> **💡 提示**：`calendarProps` / `resourceUsageProps` 是专门为避免 `GanttChart` 顶层属性无限膨胀而开的透传口，其完整属性/插槽/事件说明见 [CalendarView 组件](#calendarview-组件) 与 [ResourceUsageView 组件](#resourceusageview-组件资源工时视图) 章节；两个组件各自的 Expose 方法（如 `setScale()`、`goToToday()`）**不会**通过 `GanttChart` 的 `ref` 透传，仅在[独立使用](#calendarview-组件)这两个组件时可通过各自的模板引用调用，详见 [⚙️ 配置与扩展 → Expose 方法](#expose-方法)。
 
 ---
 
@@ -694,10 +809,11 @@ const propsExpandAll = ref(false)
 | `tasks`               | `Task[]`         | `[]`        | 任务数据数组                                                   |
 | `useDefaultDrawer`    | `boolean`        | `true`      | 是否使用内置的任务编辑抽屉（TaskDrawer）                       |
 | `taskBarConfig`       | `TaskBarConfig`  | `{}`        | 任务条样式配置，详见 [TaskBarConfig 配置](#taskbarconfig-配置) |
+| `linkConfig` ![v1.12.1](https://img.shields.io/badge/v1.12.1-409EFF?style=flat-square&labelColor=ECF5FF) | `LinkConfig` | `undefined` | 连线样式配置，详见 [LinkConfig 配置](#linkconfig-配置) |
 | `taskListConfig`      | `TaskListConfig` | `undefined` | 任务列表配置，详见 [TaskListConfig 配置](#tasklistconfig-配置) |
 | `autoSortByStartDate` | `boolean`        | `false`     | 是否根据开始时间自动排序任务                                   |
 | `enableTaskRowMove`        | `boolean` | `false`  | 是否允许拖拽和摆放TaskRow   |
-| `assigneeOptions`           | `Array<{ key?: string \| number; value: string \| number; label: string }>`               | `[]`    | 任务编辑抽屉中负责人下拉菜单的选项列表          |
+| `assigneeOptions`           | `Array<{ key?: string \| number; value: string \| number; label: string; avatar?: string; type?: string ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) }>`               | `[]`    | 任务编辑抽屉中负责人下拉菜单的选项列表。`type` 为可选的资源类别（Human/Device/Others），选中资源时会级联预填到资源绑定行的类别字段          |
 | `taskListColumnRenderMode` | `'default' \| 'declarative'` | `'default'` | 任务列表列渲染模式。`'default'`：使用 TaskListColumnConfig 配置（兼容模式，将逐渐废弃）；`'declarative'`：使用 TaskListColumn 组件声明式定义列（推荐）。详见 [TaskListColumn 声明式列定义](#tasklistcolumn-声明式列定义) |
 | `taskListRowClassName` | `string \| ((task: Task) => string)` | `undefined` | 自定义任务行的 CSS 类名。可以是字符串或返回字符串的函数。**注意**：行的高度由组件内部统一管理，自定义高度样式不会生效 |
 | `taskListRowStyle` | `CSSProperties \| ((task: Task) => CSSProperties)` | `undefined` | 自定义任务行的内联样式。可以是样式对象或返回样式对象的函数。**注意**：行的高度和宽度由组件内部统一管理，自定义宽高样式不会生效 | 
@@ -756,7 +872,7 @@ const propsExpandAll = ref(false)
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
 import type { Task } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const tasks = ref<Task[]>([
   {
@@ -847,7 +963,7 @@ const handleTaskDragEnd = (task: Task) => {
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
 import type { Task } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const tasks = ref<Task[]>([
   {
@@ -970,7 +1086,7 @@ const handleSuccessorAdded = (event: { targetTask: Task; newTask: Task }) => {
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const tasks = ref([])
 const milestones = ref([])
@@ -1034,7 +1150,7 @@ const handleTaskAdded = e => {
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
 import type { Task } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const tasks = ref<Task[]>([
   {
@@ -1153,7 +1269,8 @@ const handleTaskRowMoved = async (payload: {
 | --------------- | ------------------- | ---- | ------ | ----------------------------------------------------------------------------------------------- |
 | `id`            | `string \| number`  | ✅   | -      | 资源唯一标识符                                                                                  |
 | `name`          | `string`            | ✅   | -      | 资源名称（如人名、设备名）                                                                      |
-| `type`          | `string`            | -    | -      | 资源类型（如 'developer', 'designer', 'device' 等）                                              |
+| `title` ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) | `string` | -    | -      | 资源职务/头衔（如 '前端工程师'、'项目经理'），自由文本                                          |
+| `type` ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) | `string` | -    | `'Human'` | 资源类别，用于区分人力/设备/其他资源，预设 `'Human'` / `'Device'` / `'Others'`（字符串类型，不做强枚举校验，允许自定义扩展） |
 | `avatar`        | `string`            | -    | -      | 资源头像 URL                                                                                    |
 | `description`   | `string`            | -    | -      | 资源描述                                                                                        |
 | `department`    | `string`            | -    | -      | 所属部门                                                                                        |
@@ -1163,6 +1280,8 @@ const handleTaskRowMoved = async (payload: {
 | `tasks`         | `Task[]`            | -    | `[]`   | 分配给该资源的任务数组，**每个任务需包含 `resources` 字段标注资源占用比例**                      |
 | `[key: string]` | `unknown`           | -    | -      | 支持自定义属性扩展，可添加任意额外字段                                                           |
 
+> **⚠️ Breaking Change（v1.13.5）**：`type` 字段语义从"自由文本描述"调整为"资源类别"，原本存放在 `type` 里的职位/头衔信息请迁移到新增的 `title` 字段（升级前：`{ type: '前端工程师' }` → 升级后：`{ title: '前端工程师', type: 'Human' }`）。**本次不提供运行时自动兼容**，请在升级前手动迁移你自己的资源数据源；若未设置 `type`，组件内部默认按 `'Human'` 处理。详见 [CHANGELOG.md](./CHANGELOG.md)。
+>
 > **自定义属性扩展**：Resource 接口支持添加任意自定义字段，例如：`email`、`phone`、`location`、`workHours` 等业务相关字段。
 >
 > **任务资源关联说明**：
@@ -1173,6 +1292,35 @@ const handleTaskRowMoved = async (payload: {
 > - `capacity` 范围：20-100，表示该任务占用该资源的百分比
 > - 冲突检测：当同一资源在同一时间段的多个任务 `capacity` 总和 > 100% 时，会显示冲突警告
 
+#### 自定义资源类别 ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF)
+
+TaskDrawer 资源分配行的"类别"下拉默认展示内置的 人力(Human)/设备(Device)/其他(Others) 三项（文案随 `locale` 自动切换中英文）。如果业务方有自己的类别体系，或需要接入自定义多语言，可以通过 `resourceTypeOptions` 属性传入自定义选项集合完全替换默认项；也可以通过 `showResourceTypeOption` 属性整体隐藏该下拉列（隐藏后 `resource.type` 仍会按 `'Human'` 默认写入，不影响数据结构）。
+
+```vue
+<template>
+  <GanttChart
+    :tasks="tasks"
+    :resources="resources"
+    :resource-type-options="resourceTypeOptions"
+    :show-resource-type-option="true"
+  />
+</template>
+
+<script setup>
+import type { ResourceTypeOption } from 'jordium-gantt-vue3'
+
+// 完全自定义的类别集合（value 会写入 resource.type / task.resources[].type，label 由外部完全控制，可自行实现多语言）
+const resourceTypeOptions: ResourceTypeOption[] = [
+  { value: 'Employee', label: '正式员工' },
+  { value: 'Contractor', label: '外包人员' },
+  { value: 'Equipment', label: '设备' },
+]
+</script>
+```
+
+- 不设置 `resourceTypeOptions`（或传入空数组）时，使用内置的 Human/Device/Others 三项，行为与升级前完全一致。
+- 若只想隐藏该下拉列（不需要自定义类别集合），单独设置 `:show-resource-type-option="false"` 即可，`resource.type` 仍会按内置逻辑默认写入 `'Human'`。
+
 **Resource 数据示例**：
 
 ```typescript
@@ -1182,7 +1330,8 @@ const resources: Resource[] = [
   {
     id: 'dev-001',
     name: '张三',
-    type: 'developer',
+    title: 'developer', // 原 type 字段迁移至此
+    type: 'Human',      // 新增：资源类别
     avatar: '/avatars/zhangsan.jpg',
     department: '研发部',
     skills: ['Vue', 'TypeScript', 'Node.js'],
@@ -1196,8 +1345,8 @@ const resources: Resource[] = [
         endDate: '2026-02-10',
         progress: 50,
         resources: [
-          { id: 'dev-001', capacity: 60 }, // 该任务占用张三60%的时间
-          { id: 'dev-002', capacity: 40 }  // 同时占用李四40%的时间
+          { id: 'dev-001', type: 'Human', capacity: 60 }, // 该任务占用张三60%的时间
+          { id: 'dev-002', type: 'Human', capacity: 40 }  // 同时占用李四40%的时间
         ]
       },
       {
@@ -1207,7 +1356,7 @@ const resources: Resource[] = [
         endDate: '2026-02-08',
         progress: 0,
         resources: [
-          { id: 'dev-001', capacity: 40 } // 该任务占用张三40%的时间
+          { id: 'dev-001', type: 'Human', capacity: 40 } // 该任务占用张三40%的时间
         ]
       }
       // 注意：如果两个任务时间重叠，张三在2月5-8日的总占用率为100%（60%+40%），临界值
@@ -1216,7 +1365,8 @@ const resources: Resource[] = [
   {
     id: 'dev-002',
     name: '李四',
-    type: 'developer',
+    title: 'developer', // 原 type 字段迁移至此
+    type: 'Human',      // 新增：资源类别
     avatar: '/avatars/lisi.jpg',
     department: '研发部',
     skills: ['React', 'TypeScript'],
@@ -1271,6 +1421,8 @@ const resource = {
 | `resources`           | `Resource[]`          | `[]`         | 资源数据数组                                                                |
 | `viewMode`            | `'task' \| 'resource'` | `'task'`     | 视图模式：'task' 任务计划视图，'resource' 资源计划视图                      |
 | `resourceListConfig`  | `ResourceListConfig`  | `undefined`  | 资源列表配置，类似 TaskListConfig，用于配置资源列表的列定义、宽度等         |
+| `resourceTypeOptions` ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) | `ResourceTypeOption[]`（`{ value: string; label: string }`） | `[]`         | 自定义 TaskDrawer 资源分配行“类别”下拉的可选项集合，不设置或传空数组时使用内置的 人力(Human)/设备(Device)/其他(Others)。`label` 完全由外部提供，可实现自定义类别集合或多语言。详见下方「自定义资源类别」示例 |
+| `showResourceTypeOption` ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) | `boolean`             | `true`       | 是否展示 TaskDrawer 资源分配行的“类别”下拉选项。设为 `false` 可完全隐藏该列（仍会按 `'Human'` 默认写入 `resource.type`，不影响数据本身） |
 | `showConflicts`       | `boolean`             | `true`       | 是否显示资源冲突可视化层（资源视图下显示斜纹背景标识超载区域）              |
 | `showTaskbarTab`      | `boolean`             | `true`       | 是否显示TaskBar上的资源Tab标签（资源视图下TaskBar上的资源占用比例标签）     |
 
@@ -1305,13 +1457,14 @@ const resource = {
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
 import type { Resource } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const resources = ref<Resource[]>([
   {
     id: 'dev-001',
     name: '张三',
-    type: 'developer',
+    title: 'developer', // v1.13.5：原 type 字段迁移至此
+    type: 'Human',      // v1.13.5：新增资源类别
     department: '研发部',
     tasks: [
       {
@@ -1361,6 +1514,20 @@ const handleTaskbarResourceChange = (payload: any) => {
 | --------------------------- | --------- | ------ | -------------------------------------------------------- |
 | `milestones`                | `Task[]`  | `[]`   | 里程碑数据数组（类型为 Task[]，需确保 type='milestone'） |
 | `useDefaultMilestoneDialog` | `boolean` | `true` | 是否使用内置的里程碑编辑对话框（MilestoneDialog）        |
+| `milestoneLabelPosition` ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF) | `'left' \| 'top' \| 'right' \| 'bottom'` | `'right'` | 里程碑标签相对于图标（或自定义 `custom-milestone-content` 插槽内容）的展示位置，默认值与改造前的硬编码行为一致 |
+
+**里程碑标签位置示例** ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF)：
+
+```vue
+<GanttChart :tasks="tasks" :milestones="milestones" milestone-label-position="top" />
+```
+
+| 取值       | 说明                     |
+| ---------- | ------------------------ |
+| `'right'`  | 标签在图标右侧（默认）    |
+| `'left'`   | 标签在图标左侧            |
+| `'top'`    | 标签在图标上方            |
+| `'bottom'` | 标签在图标下方            |
 
 **配置说明**：
 
@@ -1419,7 +1586,7 @@ const handleTaskbarResourceChange = (payload: any) => {
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
 import type { Task } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const milestones = ref<Task[]>([
   {
@@ -1508,7 +1675,7 @@ const handleMilestoneDrag = (milestone: Task) => {
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import CustomMilestoneDialog from './CustomMilestoneDialog.vue'
 import type { Task } from 'jordium-gantt-vue3'
 
@@ -1741,6 +1908,300 @@ const handleDelete = () => {
 
 ---
 
+### CalendarView 组件 ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF)
+
+`CalendarView` 是内嵌于 GanttChart 的"日历视图"（`view-mode="calendar"`）所使用的组件，也可脱离 GanttChart 单独 `import` 挂载使用，用于按资源查看/新建日、周、月粒度的任务安排。
+
+#### 数据结构说明
+
+`CalendarView` **不存在独立的日历专属数据结构**，直接复用与任务视图、资源视图相同的 `Task[]` / `Resource[]` 数据模型（详见 [任务管理](#任务管理) 与 [资源管理](#资源管理-)）。`CalendarTypes.ts` 中仅额外定义了日历视图自身的辅助类型：`WorkingHoursConfig`（工作时间段配置）、`CalendarScale`（'day' | 'week' | 'month'）、`CalendarSelectionDraft` / `CalendarSelectionRange`（拖拽选区草稿与确认结果）、`CalendarTaskMovePayload`（![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) 拖拽移动任务后的新旧时间范围，包含 `task`（日期已更新的完整 Task 对象）、`previousStartDate` / `previousEndDate` / `newStartDate` / `newEndDate`（Date）与 `resourceId`）。
+
+这意味着：在 GanttChart 中通过 `:tasks` / `:resources` 传入的数据集会被日历视图直接复用；在日历视图中新建或编辑的任务，会同步更新到同一份 `tasks` / `resources` 数据（无需额外的映射或适配代码）。
+
+#### CalendarView 属性
+
+| 属性名                 | 类型                                                   | 默认值                                    | 说明                                                                 |
+| ---------------------- | ------------------------------------------------------ | ------------------------------------------ | ---------------------------------------------------------------------- |
+| `tasks`                | `Task[]`                                               | -                                           | 任务数据（与 GanttChart 共用同一数据集）                                |
+| `resources`             | `Resource[]`                                           | `[]`                                        | 资源数据（与 GanttChart 共用同一数据集）                                |
+| `scale` / `defaultScale`| `'day' \| 'week' \| 'month'`                            | `'day'`                                     | 当前 / 默认视图粒度                                                     |
+| `currentDate`           | `Date \| string`                                        | 今天                                        | 当前锚点日期                                                            |
+| `selectedResourceId`    | `string \| number \| null`                              | -                                           | 当前选中的资源 ID，未选中时不展示任务                                    |
+| `workingHours`          | `WorkingHoursConfig`                                    | 上午 8-11 点 / 下午 13-17 点                | 工作时间段配置，用于高亮工作时段 / 拖拽吸附                              |
+| `selectionMinuteStep`   | `number`                                                | `15`                                        | 拖拽选区吸附的分钟粒度                                                  |
+| `disabled`              | `boolean`                                               | `false`                                     | 是否禁用拖拽创建任务                                                    |
+| `allDayLabel`           | `string`                                                | `'全天'`                                    | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) 日/周视图中全天任务行的标签文字 |
+| `taskCardOpacity`       | `number`                                                | `0.18`                                      | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) 日/周视图任务卡片底色透明度（0-1），底色取 `task.barColor` 或主题色与透明色的混合 |
+| `taskAccentWidth`       | `number`                                                | `5`                                         | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) 日/周视图任务卡片左侧强调条宽度（px） |
+| `onBeforeSelect`        | `(range) => boolean \| Promise<boolean>`                 | -                                           | 拖拽选区完成前的拦截钩子，返回 `false` 可取消                            |
+| `onBeforeResourceChange`| `(nextId, prevId) => boolean \| Promise<boolean>`         | -                                           | 切换选中资源前的拦截钩子                                                |
+| `onBeforeViewChange`    | `(next, prev) => boolean \| Promise<boolean>`             | -                                           | 切换日/周/月视图前的拦截钩子                                            |
+| `onTaskClick`           | `(task, event) => void`                                 | -                                           | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) 点击已创建任务卡片时触发 |
+| `onTaskMove`            | `(payload: CalendarTaskMovePayload) => void`             | -                                           | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) 拖拽已创建任务卡片松开后触发 |
+
+#### CalendarView 插槽
+
+| 插槽名      | 参数              | 说明                                                                          |
+| ----------- | ----------------- | ------------------------------------------------------------------------------- |
+| `task-card` | `{ task, style }` | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) 日/周视图具体时段任务卡片的自定义渲染插槽。默认内容：标题行展示 `"任务名 - HH:mm ~ HH:mm"`（全天任务则仅展示 `task.name`），当 `task.description` 有值时在标题下方追加一行描述；`style` 已包含位置与颜色样式，可直接绑定到自定义卡片根节点 |
+
+#### CalendarView 事件
+
+| 事件名               | 参数                       | 说明                     |
+| --------------------- | -------------------------- | ------------------------ |
+| `selection-complete`  | `CalendarSelectionRange`   | 拖拽选区确认后触发       |
+| `selection-cancel`    | `{ reason }`               | 拖拽选区取消后触发       |
+| `resource-change`     | `{ next, prev }`           | 选中资源变更后触发       |
+| `view-change`         | `{ next, prev }`           | 日/周/月视图切换后触发   |
+| `date-change`         | `{ next, prev }`           | 锚点日期变更后触发       |
+| `task-click`          | `(task: Task, event: MouseEvent)` | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) 点击已创建任务卡片时触发 |
+| `task-move`           | `CalendarTaskMovePayload`  | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) 拖拽已创建任务卡片松开后触发：日视图仅支持在同日内上下拖拽改变时段，周视图支持上下改时段+左右改日期，月视图支持拖拽至任意日期格 |
+
+> 在 GanttChart 中使用时，以上两个事件会以 `calendar-task-click` / `calendar-task-move` 命名转发（与其他 `calendar-*` 前缀事件保持命名一致），并在 `useDefaultDrawer=true` 时自动打开内置 TaskDrawer 允许修改。
+
+> 💡 **Expose 方法**（`goToToday()`、`goToDate()`、`setScale()`、`clearSelection()`）统一收录在 [⚙️ 配置与扩展 → Expose 方法 → CalendarView Expose 方法](#calendarview-expose-方法)；注意 GanttChart **不会**转发这些方法，仅在下方“独立使用”示例那种自己持有 `ref` 的场景下可调用。
+>
+> 在 GanttChart 中，可通过 `calendarProps` 属性透传上述所有 CalendarView 属性（如 `:calendar-props="{ taskCardOpacity: 0.25, taskAccentWidth: 4 }"`），详见 [⚙️ 配置与扩展 → CalendarView 专属配置（calendarProps）](#calendarview-专属配置calendarprops)。
+
+#### 示例1：通过 GanttChart 使用日历视图
+
+```vue
+<template>
+  <div style="height: 600px;">
+    <GanttChart
+      :tasks="tasks"
+      :resources="resources"
+      view-mode="calendar"
+      :calendar-props="{ selectedResourceId: resources[0]?.id, allDayLabel: '全天' }"
+      @calendar-task-click="handleTaskClick"
+      @calendar-task-move="handleTaskMove"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { GanttChart } from 'jordium-gantt-vue3'
+import type { Task, Resource } from 'jordium-gantt-vue3'
+import 'jordium-gantt-vue3/index.css'
+
+const resources: Resource[] = [{ id: 'dev-001', name: '张三' }]
+const tasks: Task[] = [
+  {
+    id: 1,
+    name: '需求评审',
+    startDate: '2026-02-01',
+    endDate: '2026-02-01',
+    resources: [{ id: 'dev-001' }],
+  },
+]
+
+const handleTaskClick = (task: Task) => {
+  console.log('日历视图点击任务：', task)
+}
+const handleTaskMove = (payload: any) => {
+  console.log('日历视图拖拽移动任务：', payload)
+}
+</script>
+```
+
+#### 示例2：独立使用 CalendarView 并自定义 `#task-card` 插槽
+
+无需 GanttChart，直接 `import` 后传入 `tasks`/`resources` 即可独立挂载；只有此方式下才能通过自身的 `ref` 调用 `goToToday()`、`setScale()` 等 Expose 方法。
+
+```vue
+<template>
+  <div style="height: 500px;">
+    <CalendarView
+      ref="calendarRef"
+      :tasks="tasks"
+      :resources="resources"
+      :selected-resource-id="selectedResourceId"
+    >
+      <template #task-card="{ task, style }">
+        <div :style="style" class="my-task-card">
+          <strong>{{ task.name }}</strong>
+          <span class="my-task-card-time">{{ formatTime(task.startDate) }} ~ {{ formatTime(task.endDate) }}</span>
+          <p v-if="task.description" class="my-task-card-desc">{{ task.description }}</p>
+        </div>
+      </template>
+    </CalendarView>
+    <button @click="calendarRef?.goToToday()">回到今天</button>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import { CalendarView } from 'jordium-gantt-vue3'
+import type { Task, Resource } from 'jordium-gantt-vue3'
+import 'jordium-gantt-vue3/index.css'
+
+const calendarRef = ref<InstanceType<typeof CalendarView>>()
+const selectedResourceId = ref<string | number | null>('dev-001')
+const resources: Resource[] = [{ id: 'dev-001', name: '张三' }]
+const tasks: Task[] = []
+
+const formatTime = (date: string | Date) => new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+</script>
+```
+
+作用域插槽的 `style` 对象已包含 CalendarView 计算好的卡片位置/颜色样式（top/height/left/width/背景色/左侧边框等），直接绑定到自定义卡片的根节点即可保证在日/周视图网格中的定位正确；标题、时间段、描述或其他任意自定义内容都可以在其内部自由排版。
+
+---
+
+### ResourceUsageView 组件（资源工时视图）![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF)
+
+`ResourceUsageView` 是 GanttChart「资源工时视图」（`view-mode="resource-usage"`）所使用的组件，也可脱离 GanttChart 单独 `import` 挂载使用，用于以 MS-Project 风格的双 Panel（左侧资源列表 + 右侧工时网格）查看各资源在不同日/周/月周期内的工时占比与超载情况。
+
+左侧资源列表面板自 v1.13.0 起**直接内嵌资源计划视图所使用的 `TaskList` 组件本体**（而非样式/结构模仿），因此天然获得声明式列（`TaskListColumn`）、列级/表头 slot、粘性表头、首列固定等与资源计划视图完全一致的能力；与右侧工时网格面板之间的纵向滚动位置、行悬停高亮联动，通过与 `TaskList`/`Timeline` 一致的全局事件协议自动桥接，无需额外配置。纵向/横向均采用虚拟滚动，仅渲染可视区域 + 缓冲区的行/列，可支撑较多资源与较长时间跨度（如整年"日"刻度）而不影响滚动流畅度。
+
+#### 数据结构说明
+
+`ResourceUsageView` **不需要单独的数据结构或转换步骤**，直接复用 GanttChart 既有的 `Resource[]` 数据集（与资源计划视图 `view-mode="resource"` 传入的 `resources` 完全一致）：
+
+- `resource.id` / `resource.name`：资源列表左侧展示
+- `resource.tasks: Task[]`：该资源承接的任务集合，用于聚合工时，每个 task 需要提供 `startDate` / `endDate`（必需），`estimatedHours`（可选，缺省按 8h/工作日折算），`resources: [{ id, capacity }]`（可选，缺省 100%）
+
+`ResourceUsageTypes.ts` 额外定义了本视图专属的辅助类型：`ResourceUsageScale`（`'day' | 'week' | 'month'`）、`ResourceUsageCellData`（单个资源在某周期桶内的工时聚合结果，含 `totalHours`/`totalPercent`/`isOverloaded`/`taskBreakdown`）、`ResourceUsageCellPayload`（`cell-click`/`cell-hover` 事件负载）。
+
+#### ResourceUsageView 属性
+
+| 属性名                 | 类型                                                        | 默认值      | 说明                                                                                     |
+| ---------------------- | ----------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------- |
+| `resources`            | `Resource[]`                                                 | -           | 资源数据（与 GanttChart 共用同一数据集）                                                    |
+| `scale` / `defaultScale`| `'day' \| 'week' \| 'month'`                                  | `'week'`    | 当前 / 默认工时刻度                                                                        |
+| `dateRange`            | `{ start: Date; end: Date }`                                 | 当月        | 工时聚合的时间范围                                                                          |
+| `resourceListConfig`   | `ResourceListConfig`                                         | `undefined` | 左侧资源列表列配置，未提供时回退到内置 `DEFAULT_RESOURCE_LIST_COLUMNS`                        |
+| `columnRenderMode`     | `'default' \| 'declarative'`                                  | `'default'` | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) `'default'` 使用 `resourceListConfig.columns` 配置列；`'declarative'` 使用默认插槽中的 `TaskListColumn` 声明式列 |
+| `overloadThreshold`    | `number`                                                     | `100`       | 超载判定阈值（百分比）                                                                       |
+| `underloadThreshold`   | `number`                                                     | `60`        | 欠载判定阈值（百分比）                                                                       |
+| `overloadColor`        | `string`                                                     | 主题默认色  | 超载单元格背景色                                                                            |
+| `normalColor`          | `string`                                                     | 主题默认色  | 正常单元格背景色                                                                            |
+| `underloadColor`       | `string`                                                     | 主题默认色  | 欠载单元格背景色                                                                            |
+| `weekendColor`         | `string`                                                     | 主题默认色  | 周末列背景色（仅 `scale === 'day'` 生效）                                                    |
+| `rowHeight`            | `number`                                                     | `51`        | 行高（px），左右两侧面板共用                                                                 |
+| `columnWidth`          | `number`                                                     | 按刻度自动  | 单元格列宽（px），未提供时按 `scale` 使用默认值（day: 56 / week: 80 / month: 100）             |
+| `disabled`             | `boolean`                                                    | `false`     | 是否禁用组件（置灰且不可交互）                                                               |
+| `onBeforeScaleChange`  | `(next, prev) => boolean \| Promise<boolean>`                 | -           | 刻度切换前的拦截钩子，返回 `false` 可取消                                                    |
+| `onCellClick`          | `(payload: ResourceUsageCellPayload) => void`                 | -           | 点击工时单元格时触发                                                                        |
+| `onTaskDetailClick` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `(payload: ResourceUsageTaskDetailClickPayload) => void` | -           | 点击工时单元格 Tooltip 明细中的某个任务时触发；通过 GanttChart 使用时会自动切换回 `'task'` 视图并滚动定位到该任务 |
+
+#### ResourceUsageView 插槽
+
+| 插槽名    | 说明                                                                                                                                   |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `default` | ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) 转发给内嵌 `TaskList` 的默认插槽，`columnRenderMode="declarative"` 时用于放置 `TaskListColumn` 声明式列定义，写法与资源计划视图完全一致 |
+
+#### ResourceUsageView 事件
+
+| 事件名                | 参数                                                                          | 说明                       |
+| ---------------------- | ------------------------------------------------------------------------------ | -------------------------- |
+| `scale-change`         | `{ next: ResourceUsageScale; prev: ResourceUsageScale }`                       | 工时刻度切换后触发           |
+| `cell-click`           | `ResourceUsageCellPayload`                                                     | 点击工时单元格时触发         |
+| `cell-hover`           | `ResourceUsageCellPayload \| null`                                              | 鼠标悬停/移出工时单元格时触发 |
+| `overload-detected`    | `{ resourceId: string \| number; periods: ResourceUsageCellData[] }`           | 检测到某资源存在超载周期时触发（数据变化后自动重新检测） |
+| `task-detail-click` ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF) | `ResourceUsageTaskDetailClickPayload` | 点击工时单元格 Tooltip 明细中的某个任务时触发 |
+
+> 💡 **Expose 方法**（`setScale()`、`refreshAggregation()`）统一收录在 [⚙️ 配置与扩展 → Expose 方法 → ResourceUsageView Expose 方法](#resourceusageview-expose-方法)；GanttChart **不会**转发这些方法，仅在独立使用时可调用。刻度切换不内置 UI，由外部（如 GanttChart 工具栏的 日/周/月 按钮）驱动 `scale` 受控属性；独立使用时也可通过 `defaultScale` 设置初始值，或调用 `setScale()` 编程式切换。
+>
+> 在 GanttChart 中使用时，设置 `view-mode="resource-usage"` 即可切换到资源工时视图；上表所有属性均可通过 `resourceUsageProps` 属性透传，详见 [⚙️ 配置与扩展 → ResourceUsageView 专属配置（resourceUsageProps）](#resourceusageview-专属配置resourceusageprops)；五个事件会以 `resource-usage-*` 前缀命名转发；`view-mode="resource-usage"` 下 GanttChart 的默认插槽（声明式列定义）也会与 `TaskList` 分支一致地转发给内嵌的 `TaskList`。
+
+#### 示例1：通过 GanttChart 使用资源工时视图
+
+```vue
+<template>
+  <div style="height: 600px;">
+    <GanttChart
+      :resources="resources"
+      view-mode="resource-usage"
+      :resource-usage-props="{ overloadThreshold: 100, underloadThreshold: 60 }"
+      @resource-usage-cell-click="handleCellClick"
+      @resource-usage-overload-detected="handleOverloadDetected"
+    >
+      <!-- columnRenderMode="declarative" 时，声明式列写法与资源计划视图完全一致 -->
+      <TaskListColumn key="type" label="资源类型" />
+      <TaskListColumn key="department" label="部门" />
+      <TaskListColumn key="capacity" label="利用率" />
+    </GanttChart>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { GanttChart, TaskListColumn } from 'jordium-gantt-vue3'
+import type { Resource } from 'jordium-gantt-vue3'
+import 'jordium-gantt-vue3/index.css'
+
+const resources: Resource[] = [
+  {
+    id: 'dev-001',
+    name: '张三',
+    title: 'developer', // v1.13.5：原 type 字段迁移至此
+    type: 'Human',      // v1.13.5：新增资源类别
+    department: '研发部',
+    tasks: [
+      {
+        id: 1,
+        name: '前端开发',
+        startDate: '2026-02-01',
+        endDate: '2026-02-10',
+        progress: 50,
+        resources: [{ id: 'dev-001', capacity: 60 }],
+      },
+    ],
+  },
+]
+
+const handleCellClick = (payload: any) => {
+  console.log('工时单元格点击：', payload)
+}
+
+const handleOverloadDetected = (payload: any) => {
+  console.log('检测到超载：', payload)
+}
+</script>
+```
+
+#### 示例2：独立使用 ResourceUsageView
+
+无需 GanttChart，直接 `import` 后传入 `resources` 即可独立挂载；只有此方式下才能通过自身的 `ref` 调用 `setScale()`、`refreshAggregation()` 等 Expose 方法。
+
+```vue
+<template>
+  <div style="height: 500px;">
+    <ResourceUsageView
+      ref="resourceUsageRef"
+      :resources="resources"
+      :default-scale="'week'"
+      @cell-click="handleCellClick"
+    />
+    <button @click="resourceUsageRef?.setScale('month')">切换为月视图</button>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import { ResourceUsageView } from 'jordium-gantt-vue3'
+import type { Resource } from 'jordium-gantt-vue3'
+import 'jordium-gantt-vue3/index.css'
+
+const resourceUsageRef = ref<InstanceType<typeof ResourceUsageView>>()
+const resources: Resource[] = [
+  {
+    id: 'dev-001',
+    name: '张三',
+    tasks: [
+      { id: 1, name: '前端开发', startDate: '2026-02-01', endDate: '2026-02-10', resources: [{ id: 'dev-001', capacity: 60 }] },
+    ],
+  },
+]
+
+const handleCellClick = (payload: any) => {
+  console.log('工时单元格点击：', payload)
+}
+</script>
+```
+
+---
+
 ## ⚙️ 配置与扩展
 
 本章节详细介绍 GanttChart 组件的配置选项和扩展能力，包括组件配置、主题与国际化、自定义扩展三个部分。
@@ -1842,7 +2303,7 @@ TimelineScale.YEAR // 'year' - 年视图
 
 <script setup lang="ts">
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { ToolbarConfig } from 'jordium-gantt-vue3'
 
 const toolbarConfig: ToolbarConfig = {
@@ -1972,6 +2433,7 @@ const toolbarConfig: ToolbarConfig = {
 | `cssClass` | `string`  | -    | 自定义 CSS 类名                                                  |
 | `width`    | `number`  | -    | 列宽度（单位：像素）                                             |
 | `visible`  | `boolean` | -    | 是否显示该列，默认 `true`。当 `showAllColumns=true` 时此设置无效 |
+| `fixed` ![v1.12.1](https://img.shields.io/badge/v1.12.1-409EFF?style=flat-square&labelColor=ECF5FF) | `'left' \| 'right' \| boolean` | - | 列固定。`'left'`：列自动重排到最左侧并固定，名称列始终在 `left:0`，多个左固定列按宽度累加偏移。`'right'`：列固定到最右侧。`true` 等效于 `'left'` |
 
 **示例1：基础配置（调整宽度）**
 
@@ -1982,7 +2444,7 @@ const toolbarConfig: ToolbarConfig = {
 
 <script setup lang="ts">
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { TaskListConfig } from 'jordium-gantt-vue3'
 
 const taskListConfig: TaskListConfig = {
@@ -2002,7 +2464,7 @@ const taskListConfig: TaskListConfig = {
 
 <script setup lang="ts">
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { TaskListConfig } from 'jordium-gantt-vue3'
 
 const taskListConfig: TaskListConfig = {
@@ -2024,7 +2486,7 @@ const taskListConfig: TaskListConfig = {
 
 <script setup lang="ts">
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { TaskListConfig, TaskListColumnConfig } from 'jordium-gantt-vue3'
 
 // 定义要显示的列配置
@@ -2110,7 +2572,7 @@ const taskListConfig: TaskListConfig = {
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { TaskListConfig, TaskListColumnConfig } from 'jordium-gantt-vue3'
 
 // 定义可动态配置的列
@@ -2168,6 +2630,7 @@ const taskListConfig = computed<TaskListConfig>(() => ({
 | `resizeHandleWidth` | `number`  | `5`     | 拉伸手柄宽度（像素），最大 15px |
 | `enableDragDelay`   | `boolean` | `false` | 是否启用拖拽延迟（防止误触）    |
 | `dragDelayTime`     | `number`  | `150`   | 拖拽延迟时间（毫秒）            |
+| `titlePosition` ![v1.12.0](https://img.shields.io/badge/v1.12.0-409EFF?style=flat-square&labelColor=ECF5FF) | `'inside' \| 'above'` | `'inside'` | 任务标题渲染位置。`'inside'`：标题在任务条内部（白色文字，默认行为）。`'above'`：标题悬浮在任务条上方，条内仅显示进度百分比，适合任务条较窄或任务名称较长的场景 |
 
 > **💡 编辑权限控制**：
 >
@@ -2183,7 +2646,7 @@ const taskListConfig = computed<TaskListConfig>(() => ({
 
 <script setup lang="ts">
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { TaskBarConfig } from 'jordium-gantt-vue3'
 
 const taskBarConfig: TaskBarConfig = {
@@ -2271,6 +2734,65 @@ const taskBarConfig = computed<TaskBarConfig>(() => ({
 </script>
 ```
 
+#### LinkConfig（连线样式配置）![v1.12.1](https://img.shields.io/badge/v1.12.1-409EFF?style=flat-square&labelColor=ECF5FF)
+
+控制甘特图中任务依赖连线（GanttLinks）的样式和交互行为。
+
+**配置字段：**
+
+| 字段名 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `type` | `'bezier' \| 'straight' \| 'orthogonal'` | `'bezier'` | 连线路径类型。`'bezier'`：贝塞尔曲线（默认）；`'straight'`：直线；`'orthogonal'`：L/Z 形正交折线 |
+| `color` | `string` | `'#c0c4cc'` | 普通连线颜色 |
+| `highlightColor` | `string` | `'#409eff'` | 高亮连线颜色（鼠标悬停依赖任务时） |
+| `hoverColor` | `string` | `'#67c23a'` | 悬停连线颜色 |
+| `width` | `number` | `2` | 普通连线线宽 |
+| `highlightWidth` | `number` | `4` | 高亮连线线宽 |
+| `style` | `'dotted' \| 'solid'` | `'dotted'` | 连线样式。`'dotted'`：虚线；`'solid'`：实线 |
+
+**示例1：静态配置**
+
+```vue
+<template>
+  <GanttChart :tasks="tasks" :link-config="linkConfig" />
+</template>
+
+<script setup lang="ts">
+import type { LinkConfig } from 'jordium-gantt-vue3'
+
+const linkConfig: LinkConfig = {
+  type: 'orthogonal',
+  color: '#ff6b6b',
+  style: 'solid',
+  width: 3,
+}
+</script>
+```
+
+**示例2：运行时动态切换**
+
+```vue
+<template>
+  <GanttChart ref="ganttRef" :tasks="tasks" />
+  <button @click="switchToStraight">切换为直线</button>
+  <button @click="switchToOrthogonal">切换为折线</button>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+
+const ganttRef = ref()
+
+function switchToStraight() {
+  ganttRef.value?.setLinkConfig({ type: 'straight', color: '#409eff' })
+}
+
+function switchToOrthogonal() {
+  ganttRef.value?.setLinkConfig({ type: 'orthogonal', style: 'solid' })
+}
+</script>
+```
+
 #### scaleConfigs（时间刻度配置）![v1.11.0](https://img.shields.io/badge/v1.11.0-409EFF?style=flat-square&labelColor=ECF5FF)
 
 自定义各时间刻度的单元格宽度、标题格式化字符串和缓冲区大小。只需传入需要覆盖的刻度，未传入的刻度继续使用内置默认值。
@@ -2333,7 +2855,7 @@ const taskBarConfig = computed<TaskBarConfig>(() => ({
 
 <script setup lang="ts">
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 const scaleConfigs = {
   day: { cellWidth: 60 },   // 日视图单元格加宽至60px（默认30px）
@@ -2444,6 +2966,42 @@ const scaleConfigs = {
 > - 避免出现时间线过窄或留白过多的问题
 > - 适用不同分辨率展示
 
+#### CalendarView 专属配置（calendarProps）![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF)
+
+`GanttChart` 设置 `view-mode="calendar"` 后即渲染内部 `CalendarView` 组件；`calendarProps` 是专门为其开设的透传口（避免 `GanttChart` 顶层属性无限膨胀），对象中的字段会被 `v-bind` 原样绑定到 `CalendarView` 上。
+
+完整的属性/插槽/事件列表请参考 [CalendarView 组件](#calendarview-组件) 章节的"CalendarView 属性"表；Expose 方法参考下方 [Expose 方法](#expose-方法) 章节。
+
+```vue
+<GanttChart
+  view-mode="calendar"
+  :calendar-props="{
+    allDayLabel: '全天',        // 全天任务行标签文字
+    taskCardOpacity: 0.25,      // 任务卡片底色透明度
+    taskAccentWidth: 4,         // 任务卡片左侧强调条宽度（px）
+    selectionMinuteStep: 30,    // 拖拽选区吸附粒度（分钟）
+  }"
+/>
+```
+
+#### ResourceUsageView 专属配置（resourceUsageProps）![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF)
+
+`GanttChart` 设置 `view-mode="resource-usage"` 后即渲染内部 `ResourceUsageView` 组件；`resourceUsageProps` 同理透传给 `ResourceUsageView`。
+
+完整的属性/插槽/事件列表请参考 [ResourceUsageView 组件](#resourceusageview-组件资源工时视图) 章节的"ResourceUsageView 属性"表；Expose 方法参考下方 [Expose 方法](#expose-方法) 章节。
+
+```vue
+<GanttChart
+  view-mode="resource-usage"
+  :resource-usage-props="{
+    columnRenderMode: 'declarative', // 左侧资源列表改用声明式 TaskListColumn 列
+    overloadThreshold: 100,          // 超载判定阈值（百分比）
+    underloadThreshold: 60,          // 欠载判定阈值（百分比）
+    overloadColor: '#fde2e2',        // 超载单元格背景色
+  }"
+/>
+```
+
 ### Expose 方法
 
 GanttChart 组件通过 `defineExpose` 暴露了一系列方法，允许父组件通过模板引用 (`ref`) 直接调用这些方法来控制组件行为。这种命令式的控制方式适合需要精确控制时机的场景。
@@ -2474,6 +3032,8 @@ GanttChart 组件通过 `defineExpose` 暴露了一系列方法，允许父组�
 | `getTaskListVisible` ![v1.9.2](https://img.shields.io/badge/v1.9.2-409EFF?style=flat-square&labelColor=ECF5FF) | - | `boolean` | 获取 TaskList 当前可见状态 |
 | `setTaskListVisible` ![v1.9.2](https://img.shields.io/badge/v1.9.2-409EFF?style=flat-square&labelColor=ECF5FF) | `visible: boolean` | `void` | 命令式设置 TaskList 显隐（仅 `enableTaskListCollapsible=true` 时生效） |
 | `toggleTaskList` ![v1.9.2](https://img.shields.io/badge/v1.9.2-409EFF?style=flat-square&labelColor=ECF5FF) | - | `void` | 带动画切换 TaskList 展开/收起状态 |
+| `setLinkConfig` ![v1.12.1](https://img.shields.io/badge/v1.12.1-409EFF?style=flat-square&labelColor=ECF5FF) | `config: Partial<LinkConfig>` | `void` | 动态设置连线样式配置（运行时即时生效，无需重新渲染） |
+| `getLinkConfig` ![v1.12.1](https://img.shields.io/badge/v1.12.1-409EFF?style=flat-square&labelColor=ECF5FF) | - | `Required<LinkConfig>` | 获取当前连线完整配置（合并默认值） |
 
 #### 使用示例
 
@@ -2522,7 +3082,7 @@ GanttChart 组件通过 `defineExpose` 暴露了一系列方法，允许父组�
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
 import type { TimelineScale } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 
 // 组件引用
 const ganttRef = ref<InstanceType<typeof GanttChart>>()
@@ -2608,6 +3168,26 @@ const handleScrollToDate = () => {
 **完整示例可参考：**
 - npm-demo 项目：`npm-demo/src/components/GanttTest.vue`
 - npm-webpack-demo 项目：`npm-webpack-demo/src/App.vue`
+
+#### CalendarView Expose 方法 ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF)
+
+| 方法名             | 说明                             |
+| ------------------ | -------------------------------- |
+| `goToToday()`       | 回到今天                         |
+| `goToDate(date)`    | 跳转到指定日期                    |
+| `setScale(scale)`   | 切换日/周/月视图                  |
+| `clearSelection()`  | 清除当前拖拽选区高亮              |
+
+> ⚠️ **注意**：`GanttChart` 内部虽持有 `CalendarView` 的组件引用，但**未通过 `defineExpose` 转发**上述方法。因此这些方法仅在[独立使用 `CalendarView`](#calendarview-组件) 时，通过其自身的模板引用（`ref`）调用；通过 `GanttChart` 集成时无法调用。
+
+#### ResourceUsageView Expose 方法 ![v1.13.0](https://img.shields.io/badge/v1.13.0-409EFF?style=flat-square&labelColor=ECF5FF)
+
+| 方法名                  | 说明                                                |
+| ------------------------ | --------------------------------------------------- |
+| `setScale(scale)`         | 编程式切换 day/week/month 刻度                       |
+| `refreshAggregation()`    | 强制刷新工时聚合（一般无需手动调用，数据变化会自动响应） |
+
+> ⚠️ **注意**：同 `CalendarView`，`resourceUsageProps` 仅透传属性，`ResourceUsageView` 的 Expose 方法**不会**通过 `GanttChart` 的 `ref` 转发，仅在[独立使用 `ResourceUsageView`](#resourceusageview-组件资源工时视图) 时可调用。刻度切换在 `GanttChart` 内已由工具栏 日/周/月 按钮驱动，一般无需再手动调用 `setScale()`。
 
 ---
 
@@ -3057,7 +3637,7 @@ const month = formatMonth(3)  // '3月' (zh-CN) 或 '03' (en-US)
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { Task } from 'jordium-gantt-vue3'
 import CustomTaskContent from './CustomTaskContent.vue'
 
@@ -3159,6 +3739,52 @@ const props = defineProps<Props>()
 > - TaskRow 和 TaskBar 的可用空间不同，需要适配布局
 > - 避免在插槽内容中使用过于复杂的组件，可能影响性能
 
+---
+
+##### `custom-milestone-content` 插槽 ![v1.13.5](https://img.shields.io/badge/v1.13.5-409EFF?style=flat-square&labelColor=ECF5FF)
+
+完整替换默认的里程碑图标（菱形/火箭）**以及**标签文字。不使用该插槽时，默认渲染行为不变（非破坏性变更）。
+
+**插槽参数（`MilestoneSlotProps`）：**
+
+| 参数                | 类型                    | 说明                       |
+| ------------------- | ----------------------- | -------------------------- |
+| `milestone`         | `Milestone`             | 当前里程碑对象              |
+| `task`              | `Task`                  | 里程碑背后的原始任务对象     |
+| `rowHeight`         | `number`                | 行高（像素）                |
+| `dayWidth`          | `number`                | 每日宽度（像素）            |
+| `currentTimeScale`  | `TimelineScale \| null` | 当前时间刻度                |
+| `labelPosition`     | `'right' \| 'left' \| 'top' \| 'bottom'` | 当前生效的标签位置（来自 `milestoneLabelPosition`），便于自定义内容按需自行调整布局 |
+
+**使用示例：**
+
+```vue
+<template>
+  <GanttChart :tasks="tasks">
+    <template #custom-milestone-content="{ milestone, task }">
+      <div class="my-milestone">
+        <span class="my-milestone-icon">🏁</span>
+        <span class="my-milestone-label">{{ milestone.name }}（{{ task.assigneeName }}）</span>
+      </div>
+    </template>
+  </GanttChart>
+</template>
+
+<style scoped>
+.my-milestone {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.my-milestone-icon {
+  font-size: 16px;
+}
+</style>
+```
+
+> **💡 行为变化**：点击 / 双击 / 拖拽 / 悬浮 Tooltip 等交互事件监听器统一绑定在最外层里程碑容器上，因此可交互的响应区域从原来的 24×24 图标扩大为整个自定义内容（图标+标签）区域，无论是否使用该插槽都是如此。
+
 ##### TaskListContextMenu 插槽
 
 用于自定义 TaskRow（任务列表行）的右键菜单内容。
@@ -3204,7 +3830,7 @@ const props = defineProps<Props>()
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart, TaskListContextMenu } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { Task } from 'jordium-gantt-vue3'
 
 const tasks = ref<Task[]>([])
@@ -3296,7 +3922,7 @@ const handleDuplicate = (task: Task) => {
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart, TaskBarContextMenu } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { Task } from 'jordium-gantt-vue3'
 
 const tasks = ref<Task[]>([])
@@ -3458,7 +4084,7 @@ const handleSetDependency = (task: Task) => {
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart, TaskListColumn } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { Task } from 'jordium-gantt-vue3'
 
 const tasks = ref<Task[]>([
@@ -3596,7 +4222,7 @@ const tasks = ref<Task[]>([
 <script setup lang="ts">
 import { ref } from 'vue'
 import { GanttChart } from 'jordium-gantt-vue3'
-import 'jordium-gantt-vue3/dist/assets/jordium-gantt-vue3.css'
+import 'jordium-gantt-vue3/index.css'
 import type { Task, TaskListConfig, TaskListColumnConfig } from 'jordium-gantt-vue3'
 
 const tasks = ref<Task[]>([
@@ -3835,13 +4461,13 @@ TaskList 组件经过深度重构，采用模块化设计，提升了代码可�
 
 ---
 
-## � Troubleshooting
+## Troubleshooting
 
 常见问题与解决方案请参阅 [Troubleshooting.md](./Troubleshooting.md)。
 
 ---
 
-## �📄 开源协议
+## 📄 开源协议
 
 [MIT License](./LICENSE) © 2025 JORDIUM.COM
 
@@ -3869,6 +4495,31 @@ TaskList 组件经过深度重构，采用模块化设计，提升了代码可�
 <p align="center"><sub>微信 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;支付宝</sub></p>
 
 > 🙏 也可以直接给项目点个 **⭐ Star**，对开源作者来说同样是很大的鼓励！
+
+### 🌟 赞助者名单
+
+<p align="center">
+  <a href="https://github.com/zhanmqGithub" target="_blank">
+    <img src="https://avatars.githubusercontent.com/u/129715913?v=4" width="40" height="40" style="border-radius:50%;vertical-align:middle;" alt="zhanmqGithub" />
+  </a>
+  &nbsp;<strong>zhanmqGithub</strong> — GitHub 赞助者，自 2026-07 起
+</p>
+
+<p align="center">
+  <a href="https://gitee.com/henryli1024" target="_blank">
+    <img src="https://foruda.gitee.com/avatar/1785814118313172570/17408879_henryli1024_1785814118.png" width="40" height="40" style="border-radius:50%;vertical-align:middle;" alt="henryli1024" />
+  </a>
+  &nbsp;<strong>henryli1024</strong> — Gitee 赞助者，自 2026-08 起
+</p>
+
+<p align="center">
+  <a href="https://gitee.com/hankzhang1688" target="_blank">
+    <img src="https://gitee.com/hankzhang1688" width="40" height="40" style="border-radius:50%;vertical-align:middle;" alt="hankzhang1688" />
+  </a>
+  &nbsp;<strong>hankzhang1688</strong> — Gitee 赞助者，自 2026-08 起
+</p>
+
+完整的赞助者名单及如何被收录请参阅 [SPONSORS.md](./SPONSORS.md)。
 
 ---
 

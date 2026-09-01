@@ -3,6 +3,7 @@ import { mount, VueWrapper } from '@vue/test-utils'
 import TaskList from '@/components/TaskList/TaskList.vue'
 import type { Task } from '@/models/classes/Task'
 import { createTask, createParentTask } from '../fixtures/tasks'
+import { taskRowLayoutsProvide } from '../fixtures/taskRowLayouts'
 
 type MovePayload = {
   draggedTask: Task
@@ -26,9 +27,13 @@ function bestand(): Task[] {
 }
 
 function mountTaskList() {
+  const tasks = bestand()
   return mount(TaskList, {
-    props: { tasks: bestand(), enableTaskRowMove: true },
-    global: { stubs: { Teleport: true, TaskContextMenu: true } },
+    props: { tasks, enableTaskRowMove: true },
+    global: {
+      stubs: { Teleport: true, TaskContextMenu: true },
+      provide: taskRowLayoutsProvide(tasks),
+    },
   })
 }
 

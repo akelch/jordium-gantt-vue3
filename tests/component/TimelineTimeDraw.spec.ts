@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import Timeline from '@/components/Timeline.vue'
+import { taskRowLayoutsProvide } from '../fixtures/taskRowLayouts'
 
 /**
  * Guide line at the cursor while shift is held (enableTimeDraw).
@@ -13,20 +14,22 @@ const GUIDE = '.jg-time-draw-guide'
 
 /** Mount with one row; task flags and Timeline props are set per test. */
 function mountWith(taskProps: Record<string, unknown>, props: Record<string, unknown>) {
-  return mount(Timeline, {
-    props: {
-      tasks: [
-        {
-          id: 1,
-          name: 'Row',
-          startDate: '2026-01-01 08:00',
-          endDate: '2026-01-02 08:00',
-          ...taskProps,
-        },
-      ],
-      ...props,
+  const tasks = [
+    {
+      id: 1,
+      name: 'Row',
+      startDate: '2026-01-01 08:00',
+      endDate: '2026-01-02 08:00',
+      ...taskProps,
     },
-    global: { stubs: { Teleport: true }, mocks: { $t: (key: string) => key } },
+  ]
+  return mount(Timeline, {
+    props: { tasks, ...props },
+    global: {
+      stubs: { Teleport: true },
+      mocks: { $t: (key: string) => key },
+      provide: taskRowLayoutsProvide(tasks as never),
+    },
   })
 }
 

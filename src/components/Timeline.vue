@@ -23,6 +23,7 @@ import { useViewMode } from '../composables/useViewMode' // v1.9.9 视图模式�
 import type { TaskBarConfig } from '../models/configs/TaskBarConfig'
 import { getPredecessorIds } from '../utils/predecessorUtils'
 import { formatDateTimeDE } from '../utils/dateFormat'
+import { getEffectiveEndDateOnly } from '../utils/dateBoundaryUtils'
 import { perfMonitor } from '../utils/perfMonitor'
 import { perfMonitor2 } from '../utils/perfMonitor2' // v1.9.6 性能诊断工具
 import type { Task } from '../models/classes/Task'
@@ -36,6 +37,7 @@ import type {
   MilestoneTooltipShowPayload,
 } from '../models/types/TimelineDataTypes'
 import { positionCache } from '../utils/positionCache' // v1.9.6 Phase1 位置计算缓存
+import { applyTimelineFormat } from '../utils/timelineFormat' // v1.13.0 抽取为共享工具，供 ResourceUsageView 复用同一套格式化逻辑
 import { computeTaskViewLogicalPosition } from '../utils/taskPositionUtils' // 逻辑坐标种子填充
 
 // 定义Props接口
@@ -69,6 +71,8 @@ interface Props {
   enableTaskBarTooltip?: boolean
   // 是否启用里程碑气泡提示框（默认为 true）
   enableMilestoneTooltip?: boolean
+  // 里程碑标签展示位置（默认 'right'，与现状保持一致）
+  milestoneLabelPosition?: 'left' | 'top' | 'right' | 'bottom'
   // 自定义任务状态背景色
   pendingTaskBackgroundColor?: string
   delayTaskBackgroundColor?: string
@@ -83,6 +87,8 @@ interface Props {
   // Pick mode: guide line without a modifier, a plain click on a row with task.allowTimePick
   // emits 'time-pick' { task, date }. Meant for placing something at a point in time.
   enableTimePick?: boolean
+  /** R1: 连线样式配置（透传给 GanttLinks） */
+  linkConfig?: import('../models/configs/TaskBarConfig').LinkConfig
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -104,6 +110,7 @@ const props = withDefaults(defineProps<Props>(), {
   showActualTaskbar: false,
   enableTaskBarTooltip: true,
   enableMilestoneTooltip: true,
+  milestoneLabelPosition: 'right',
   pendingTaskBackgroundColor: undefined,
   delayTaskBackgroundColor: undefined,
   completeTaskBackgroundColor: undefined,
@@ -177,13 +184,18 @@ const getConflictTasksForTask = (resourceId: string | number, taskId: string | n
   if (!currentTask || !currentTask.startDate || !currentTask.endDate) return []
 
   const currentStart = new Date(currentTask.startDate).getTime()
-  const currentEnd = new Date(currentTask.endDate).getTime()
+  const currentEndDate = new Date(currentTask.endDate)
 
   // v1.9.7 修复：返回所有与当前任务时间重叠的冲突任务
   // 不需要再次验证占比相加是否超过100%，因为resourceConflicts已经包含了所有冲突的任务ID
   // 当多个任务同时重叠时（如3个任务各75%），应该全部返回，而不是只返回第一个两两超载的任务
   // v1.9.9 修复：endDate 包含当天，需要 +1 天来判断交集（与 conflictUtils 保持一致）
-  const currentEndPlus = currentEnd + 24 * 60 * 60 * 1000
+  // v1.13.5 修复：若 endDate 显式带 time 部分（如 TaskDrawer 编辑保存后写入的
+  // '2025-08-01 00:00'，语义上是"7月31日结束"），需先经 getEffectiveEndDateOnly
+  // 修正（-15分钟再截断）再 +1天，避免把次日0点误当成占满当天，导致本不冲突的
+  // 任务被错误列入冲突列表（详见 .ai/.claude/requirments/v1.13.5.md 第9节）
+  const currentEndPlus =
+    getEffectiveEndDateOnly(currentTask.endDate, currentEndDate).getTime() + 24 * 60 * 60 * 1000
 
   const conflictTasks = resource.tasks.filter(task => {
     if (task.id === taskId) return false
@@ -192,8 +204,9 @@ const getConflictTasksForTask = (resourceId: string | number, taskId: string | n
     if (!conflictTaskIds.has(task.id)) return false
 
     const taskStart = new Date(task.startDate).getTime()
-    const taskEnd = new Date(task.endDate).getTime()
-    const taskEndPlus = taskEnd + 24 * 60 * 60 * 1000
+    const taskEndDate = new Date(task.endDate)
+    const taskEndPlus =
+      getEffectiveEndDateOnly(task.endDate, taskEndDate).getTime() + 24 * 60 * 60 * 1000
 
     // 检查时间重叠：endDate 包含当天，所以需要 +1 天来判断
     // 例如：任务A endDate=12-24, 任务B startDate=12-24，应判断为重叠（都占用12-24这一天）
@@ -232,6 +245,28 @@ const ganttRowHeight = inject<ComputedRef<number>>(
   computed(() => 51)
 )
 
+// v1.12.x: per-task 行高布局（累计位置），替代 ganttRowHeight * index 固定乘法
+const taskRowLayouts = inject<
+  ComputedRef<{
+    cumulativeHeights: number[]
+    totalHeight: number
+    taskHeights: Map<string | number, number>
+  }>
+>(
+  'taskRowLayouts',
+  computed(() => ({ cumulativeHeights: [0], totalHeight: 0, taskHeights: new Map() }))
+)
+
+// v1.12.x: resource view TaskBar 使用的 rowHeight
+// resource view 的 rowHeights 数组独立处理自身 sub-row 高度，但 TaskBar.vue 内
+// titleAbovePaddingValue 会从 props.rowHeight 中减去 18px。因此 resource view 传入的
+// rowHeight 仍需包含 +18px 补偿，与 resource view 自身的 baseRowHeight 保持一致。
+const RESOURCE_VIEW_ABOVE_PADDING = 18
+const resourceViewTaskBarRowHeight = computed(() => {
+  const base = ganttRowHeight.value
+  return props.taskBarConfig?.titlePosition === 'above' ? base + RESOURCE_VIEW_ABOVE_PADDING : base
+})
+
 // 纵向虚拟滚动相关状态（需要在useResourceLayout之前定义）
 // ROW_HEIGHT 通过 ganttRowHeight.value 访问，让下面所有使用处保持兼容
 const VERTICAL_BUFFER = 5 // 纵向缓冲区行数
@@ -267,7 +302,7 @@ const tooltipState = reactive({
   parentAutoSchedule: undefined as
     | {
         enabled: boolean
-        childrenRange: { minStart: Date; maxEnd: Date } | null
+        childrenRange: { minStart: Date; maxEnd: Date; maxEndRaw?: Task['endDate'] } | null
         hasOverflow: boolean
       }
     | undefined,
@@ -286,6 +321,20 @@ const tooltipState = reactive({
 /** 格式化日期显示 (TT.MM.JJJJ HH:mm) */
 const formatTooltipDate = (dateStr: string | undefined): string => {
   return formatDateTimeDE(dateStr) ?? t('dateNotSet')
+}
+
+/**
+ * 格式化 endDate 显示 (YYYY-MM-DD)
+ * v1.13.5：若 endDate 显式带 time 部分（如 TaskDrawer 编辑保存后写入的
+ * '2025-08-01 00:00'，语义上是"7月31日结束"），需先经 getEffectiveEndDateOnly
+ * 修正（-15分钟再截断）再展示，避免 tooltip 显示的结束日期比实际渲染多算一天
+ * （详见 .ai/.claude/requirments/v1.13.5.md 第9节）
+ */
+const formatTooltipEndDate = (dateStr: string | undefined): string => {
+  if (!dateStr) return t('dateNotSet')
+  const parsed = new Date(dateStr)
+  if (isNaN(parsed.getTime())) return t('dateNotSet')
+  return formatDateObj(getEffectiveEndDateOnly(dateStr, parsed))
 }
 
 /** 格式化 Date 对象为 YYYY-MM-DD 字符串（用于父级自动调度日期展示） */
@@ -546,46 +595,10 @@ function sanitizeBuffer(value: number | undefined): number | null {
 }
 
 /**
- * 计算日期的 ISO 周数（W token 使用）
- */
-function getISOWeekNumber(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-  const dayOfWeek = d.getUTCDay() || 7
-  d.setUTCDate(d.getUTCDate() + 4 - dayOfWeek)
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
-}
-
-/**
- * 将格式字符串应用于指定日期，返回格式化后的标签字符串。
- * 支持 token：yyyy, MM, M, dd, d, HH, mm, Q（季度数字1-4）, W（ISO周数）
- * 特殊 pattern：'AAA|BBB' —— 月份 < 6（1-6月, index 0-5）时返回 AAA，否则返回 BBB
+ * 将格式字符串应用于指定日期，返回格式化后的标签字符串（实现见 utils/timelineFormat.ts）。
  */
 function applyFormatter(formatStr: string, date: Date): string {
-  if (formatStr.includes('|')) {
-    const parts = formatStr.split('|')
-    return date.getMonth() < 6 ? parts[0] : (parts[1] ?? parts[0])
-  }
-  const yyyy = date.getFullYear().toString()
-  const MM = String(date.getMonth() + 1).padStart(2, '0')
-  const M = String(date.getMonth() + 1)
-  const dd = String(date.getDate()).padStart(2, '0')
-  const d = String(date.getDate())
-  const HH = String(date.getHours()).padStart(2, '0')
-  const mm = String(date.getMinutes()).padStart(2, '0')
-  const Q = String(Math.ceil((date.getMonth() + 1) / 3))
-  const W = getISOWeekNumber(date).toString()
-  // 注意替换顺序：多字符 token 优先，避免单字符 token 误替换
-  return formatStr
-    .replace('yyyy', yyyy)
-    .replace('MM', MM)
-    .replace('dd', dd)
-    .replace('HH', HH)
-    .replace('mm', mm)
-    .replace('M', M)
-    .replace('d', d)
-    .replace('Q', Q)
-    .replace('W', W)
+  return applyTimelineFormat(formatStr, date)
 }
 
 /**
@@ -783,21 +796,13 @@ const getDayTimelineRange = () => {
   const customPreBuffer = sanitizeBuffer(scaleConf.preBuffer)
   const customSufBuffer = sanitizeBuffer(scaleConf.sufBuffer)
 
-  if (!taskRange) {
-    // 如果没有任务，根据容器宽度计算范围
-    const today = new Date()
-    const daysNeeded = Math.max(Math.ceil(containerWidth / cellWidthDay), 60) // 至少60天
-
-    const startDate = new Date(today)
-    startDate.setDate(startDate.getDate() - Math.floor(daysNeeded / 2))
-
-    const endDate = new Date(today)
-    endDate.setDate(endDate.getDate() + Math.ceil(daysNeeded / 2))
-
-    return { startDate, endDate }
-  }
-
-  const { minDate, maxDate } = taskRange
+  // bugfix: 无任务（tasks=[]）时以"今天"作为 minDate/maxDate 锚点，复用下方与"有任务"时
+  // 完全相同的月对齐 + buffer 计算逻辑，而不是另用一套固定 ±30天窗口。
+  // 原因：旧的无任务分支不遵循 preBuffer/sufBuffer 配置、也不按月对齐，计算出的范围
+  // 比"有任务"分支窄很多（约60天 vs 三个月），当任务从空数组变为真实数据时，
+  // getDayTimelineRange 会从这条分支切换到下方分支，导致 timelineConfig 范围突变、
+  // 引发不必要的 timelineData 重新生成和滚动位置跳变。统一锚点后两条路径结果一致。
+  const { minDate, maxDate } = taskRange || { minDate: new Date(), maxDate: new Date() }
 
   // 开始日期：自定义preBuffer月前对齐月初，或默认前一个月月初
   // 对齐到月初原因：避免日期溢出导致 generateDayTimelineData 月份迭代 setMonth(+1) 跳过月份
@@ -2125,14 +2130,35 @@ const visibleTaskRange = computed(() => {
       endIndex: Math.min(resources.length, endIndex),
     }
   } else {
-    // 任务视图：使用固定行高计算
-    const startIndex = Math.floor(scrollTop / ganttRowHeight.value) - VERTICAL_BUFFER
-    const endIndex =
-      Math.ceil((scrollTop + containerHeight) / ganttRowHeight.value) + VERTICAL_BUFFER
+    // 任务视图：per-task 高度支持，使用累计高度数组 + 二分查找
+    const cumHeights = taskRowLayouts.value.cumulativeHeights
+    const total = tasks.value.length
+    if (total === 0 || cumHeights.length <= 1) {
+      return { startIndex: 0, endIndex: 0 }
+    }
+
+    // 二分查找：找到 cumulativeHeights[i] <= scrollTop 的最大 i
+    const findUpperBound = (target: number): number => {
+      let left = 0,
+        right = cumHeights.length - 1
+      while (left < right) {
+        const mid = Math.floor((left + right) / 2)
+        if (cumHeights[mid] <= target) {
+          left = mid + 1
+        } else {
+          right = mid
+        }
+      }
+      return Math.max(0, left - 1)
+    }
+
+    const startIndex = Math.max(0, findUpperBound(scrollTop) - VERTICAL_BUFFER)
+    const scrollBottom = scrollTop + containerHeight
+    const endIndex = Math.min(total, findUpperBound(scrollBottom) + VERTICAL_BUFFER + 1)
 
     return {
-      startIndex: Math.max(0, startIndex),
-      endIndex: Math.min(tasks.value.length, Math.max(startIndex + 1, endIndex)),
+      startIndex,
+      endIndex: Math.min(total, Math.max(startIndex + 1, endIndex)),
     }
   }
 })
@@ -2268,6 +2294,31 @@ const resourceTaskQueues = shallowRef(new Map<string | number, ResourceTaskQueue
 const resourceTaskRenderLimits = shallowRef(new Map<string | number, number>())
 const resourceRenderPhase = ref<'visible' | 'background'>('visible')
 let resourceBatchRafId: number | null = null
+
+// v1.12.x: GanttConflicts Canvas 定位常量
+// 资源视图下每行的 bar 位置由 assignTaskRows 的 rowHeight 和 TaskBar.vue 的 topOffset 公式共同决定：
+//   - 第一行 (row 0): bar top = abovePad + 5px(top-margin) + 0.5px(centering) = abovePad + 5.5
+//   - 后续行:       bar top = abovePad + 0px              + 0.5px(centering) = abovePad + 0.5
+//   - 每行底部留白: 4.5px（= 5px bottom-margin − 0.5px centering）
+//   - barHeight = 41px（= effectiveRowHeightForBar − 10，与 TaskBar.vue 一致）
+// 这些值独立于用户设置的 rowHeight，因为 assignTaskRows 按 5+bar+5 的结构构造行高。
+const CONFLICT_TITLE_ABOVE_PAD = 18
+const CONFLICT_FIRST_ROW_TOP_MARGIN = 5.5 // 5px padding + 0.5px centering
+const CONFLICT_ROW_BOTTOM_MARGIN = 4.5 // 5px padding − 0.5px centering
+
+const conflictTitleAbovePad = computed(() =>
+  props.taskBarConfig?.titlePosition === 'above' ? CONFLICT_TITLE_ABOVE_PAD : 0
+)
+/** Canvas 顶部偏移：对齐第一行 bar 的顶边（above-title 下方 + 第一行顶部留白） */
+const conflictCanvasTopOffset = computed(
+  () => conflictTitleAbovePad.value + CONFLICT_FIRST_ROW_TOP_MARGIN
+)
+/** Canvas 高度：覆盖 bar 区域，去除顶部留白和底部留白 */
+const conflictCanvasHeight = (totalHeight: number) =>
+  totalHeight - conflictCanvasTopOffset.value - CONFLICT_ROW_BOTTOM_MARGIN
+const getConflictRowHeights = (resourceId: string | number) => {
+  return resourceTaskLayouts.value.get(resourceId)?.rowHeights
+}
 
 const stopResourceBatchRender = () => {
   if (resourceBatchRafId !== null) {
@@ -2998,10 +3049,8 @@ const contentHeight = computed(() => {
     return Math.max(totalHeight, minHeight, timelineBodyHeight.value)
   }
 
-  // 任务视图：每个任务行高度取自 ganttRowHeight
-  const rowHeight = ganttRowHeight.value
-  const taskCount = tasks.value.length
-  const minHeightFromTasks = taskCount * rowHeight
+  // 任务视图：使用 per-task 累计高度（支持不同行有不同高度）
+  const minHeightFromTasks = taskRowLayouts.value.totalHeight
 
   // 返回任务高度、最小高度和容器高度中的最大值
   return Math.max(minHeightFromTasks, minHeight, timelineBodyHeight.value)
@@ -3450,15 +3499,27 @@ watch(
 
 // 保证每次时间轴数据变化后都自动居中今日（仅初始化和外部props变更时触发，不因任务/里程碑变更触发）
 let hasInitialAutoScroll = false
+// bugfix: 任务视图下 tasks 从空数组变为真实数据时，timelineConfig 可能被连续更新两次——
+// 1) GanttChart 的 timelineDateRange 通过 props.startDate/endDate 驱动的 watch（同步生效）
+// 2) 本组件内部 debouncedUpdateTimelineRange（50ms 延迟，基于当前 currentTimeScale 重算）
+// 若不做防抖，第一次（可能不是最终范围）就会消费掉 hasInitialAutoScroll 标记并立即滚动，
+// 第二次真正生效的范围到达时标记已为 true，不会再次滚动，导致今日定位到错误位置（仅默认的
+// "天"刻度会暴露，因为其他刻度都是用户手动切换触发 updateTimeScale()，该函数会无条件调用
+// scrollToTodayCenter()，不依赖这个标记）。改为防抖：短时间内的多次变化只取最后一次生效后的状态。
+let initialScrollDebounceTimer: number | null = null
 watch(
   () => [timelineData.value, timelineConfig.value.startDate, timelineConfig.value.endDate],
   () => {
-    if (!hasInitialAutoScroll) {
+    if (hasInitialAutoScroll) return
+    if (initialScrollDebounceTimer) clearTimeout(initialScrollDebounceTimer)
+    initialScrollDebounceTimer = setTimeout(() => {
+      initialScrollDebounceTimer = null
+      if (hasInitialAutoScroll) return
+      hasInitialAutoScroll = true
       nextTick(() => {
         scrollToTodayCenter()
-        hasInitialAutoScroll = true
       })
-    }
+    }, 120) // 大于内部各处 updateTimelineRange 相关防抖延迟（50ms/100ms），确保拿到最终稳定范围
   }
   // 优化：移除 deep: true，因为监听的是基础类型（startDate/endDate）和 shallowRef（timelineData）
   // 不需要深度监听，可减少 90% 的监听开销
@@ -4131,14 +4192,17 @@ function _runSeedChunk(deadline?: IdleDeadline) {
       continue
     }
 
+    const layouts = taskRowLayouts.value
+    const cumulativeTop = layouts.cumulativeHeights[_seedIndex] || 0
+    const taskRowHeight = layouts.taskHeights.get(task.id) ?? ganttRowHeight.value
     const pos = computeTaskViewLogicalPosition(
       task,
-      _seedIndex,
+      cumulativeTop,
       scale as any,
       positionCache,
       dw,
       baseStart,
-      ganttRowHeight.value
+      taskRowHeight
     )
     if (pos) chunkResult[task.id as number] = pos
     _seedIndex++
@@ -4629,6 +4693,11 @@ watch(
     // 真实数据到来后范围扩展，若不重置则 scrollToTodayCenter 不会再次触发
     if (oldLength === 0 && newLength > 0) {
       hasInitialAutoScroll = false
+      // bugfix: 资源视图下 updateTimelineRange 默认短路，需显式打开一次性阀门，
+      // 否则首次由空数组变为真实数据时范围不会重算（天刻度默认场景下尤为明显）
+      if (viewMode.value === 'resource') {
+        forceTimelineRangeInResourceView = true
+      }
       debouncedUpdateTimelineRange(50)
     }
 
@@ -4782,8 +4851,7 @@ const handleTaskBarHighlighted = () => {
 // v1.9.0 资源视图垂直拖拽：处理TaskBar拖放到不同资源行
 const handleResourceTaskBarDrop = (event: Event) => {
   const customEvent = event as CustomEvent
-  // @ts-expect-error - taskId和mouseX预留但当前未使用
-  const { taskId, task, sourceRowIndex, mouseY, mouseX } = customEvent.detail
+  const { task, sourceRowIndex, mouseY } = customEvent.detail
 
   // 计算目标资源行索引
   const timelineBody = timelineBodyElement.value
@@ -5501,9 +5569,13 @@ watch([timelineData, timelineContainerWidth], () => {
 })
 
 // 监听viewMode和dataSource变化，刷新缓存和时间线
-watch([viewMode, dataSource], ([newViewMode], [oldViewMode]) => {
+watch([viewMode, dataSource], ([newViewMode, newDataSource], [oldViewMode, oldDataSource]) => {
   invalidateTaskDateRangeCache()
   const viewModeChanged = newViewMode !== oldViewMode
+  // bugfix: 资源视图下宿主重新查询并整体替换 resources 数组（首次填充或切换查询条件）时，
+  // dataSource 引用会变化但 viewMode 不变，此前只判断 viewModeChanged 会导致漏掉这个场景，
+  // timelineConfig 停留在旧/空数据兜底范围，表现为无法自动定位今天、或定位后任务不在可见窗口内
+  const dataSourceChanged = newDataSource !== oldDataSource
   if (newViewMode === 'task') {
     // bugfix: 切换回任务视图时重置 hasInitialAutoScroll，确保 updateTimelineRange 完成后能重新定位今日
     // 场景：资源视图切换回任务视图时，updateTimelineRange 重新计算任务范围导致像素偏移，
@@ -5516,8 +5588,9 @@ watch([viewMode, dataSource], ([newViewMode], [oldViewMode]) => {
     }
     debouncedUpdateTimelineRange()
   } else if (newViewMode === 'resource') {
-    if (viewModeChanged) {
-      // 切换到资源视图：基于资源任务重算日期范围，重算完成后由 watch([timelineData,...]) 触发滚到今日
+    if (viewModeChanged || dataSourceChanged) {
+      // 切换到资源视图 / 资源数据整体替换：基于资源任务重算日期范围，
+      // 重算完成后由 watch([timelineData,...]) 触发滚到今日
       // 重置 hasInitialAutoScroll，确保 watch([timelineData, timelineConfig...]) 在重算完成后能滚到今日
       // 不在此处直接调用 scrollToTodayCenter()，因为 debouncedUpdateTimelineRange 有 50ms 延迟，
       // nextTick 会在 50ms 之前就执行，导致用旧的 task 视图坐标滚到错误位置
@@ -6368,29 +6441,6 @@ onUnmounted(() => {
       @mouseleave="onTimeCursorLeave"
     >
       <div ref="bodyContentRef" class="timeline-body-content">
-        <!-- 关系线组件（Canvas 渲染，支持虚拟渲染）-->
-        <!-- 任务视图：同时绘制连接线 + 周视图1号竖线 -->
-        <!-- 资源视图：仅绘制周视图1号竖线（show-links=false 跳过连接线绘制） -->
-        <GanttLinks
-          v-if="
-            viewMode === 'task' ||
-            (viewMode === 'resource' && currentTimeScale === TimelineScale.WEEK)
-          "
-          :tasks="tasks"
-          :task-bar-positions="allBarPositions"
-          :width="canvasWidth"
-          :height="canvasHeight"
-          :offset-left="canvasOffsetLeft"
-          :offset-top="canvasOffsetTop"
-          :highlighted-task-id="highlightedTaskId"
-          :highlighted-task-ids="highlightedTaskIds"
-          :hovered-task-id="hoveredTaskId"
-          :vertical-lines="monthFirstVerticalLines"
-          :show-vertical-lines="currentTimeScale === TimelineScale.WEEK"
-          :show-links="viewMode === 'task'"
-          :is-scrolling="isTimelineScrolling"
-        />
-
         <!-- 连接线拖拽引导线 - 🚀 优化：使用命令式 API，由 RAF 直接调用 draw() -->
         <LinkDragGuide
           ref="linkDragGuideRef"
@@ -6602,6 +6652,27 @@ onUnmounted(() => {
             :style="{ left: `${timeDrawGuideLeft}px` }"
           ></div>
 
+          <!-- 关系线 Canvas（位于 container 内部，z-index 在 taskbar 之上、avatar 之下） -->
+          <GanttLinks
+            v-if="
+              viewMode === 'task' ||
+              (viewMode === 'resource' && currentTimeScale === TimelineScale.WEEK)
+            "
+            :tasks="tasks"
+            :task-bar-positions="allBarPositions"
+            :width="canvasWidth"
+            :height="canvasHeight"
+            :offset-left="canvasOffsetLeft"
+            :offset-top="canvasOffsetTop"
+            :highlighted-task-id="highlightedTaskId"
+            :highlighted-task-ids="highlightedTaskIds"
+            :hovered-task-id="hoveredTaskId"
+            :vertical-lines="monthFirstVerticalLines"
+            :show-vertical-lines="currentTimeScale === TimelineScale.WEEK"
+            :show-links="viewMode === 'task'"
+            :is-scrolling="isTimelineScrolling"
+            :link-config="props.linkConfig"
+          />
           <div class="task-rows" :style="{ height: `${contentHeight}px` }">
             <!-- 任务视图：使用虚拟滚动分批渲染可见任务（taskRenderedItems 每帧限流 3 行新增）-->
             <div
@@ -6610,7 +6681,10 @@ onUnmounted(() => {
               :key="task.id"
               class="task-row"
               :class="{ 'task-row-hovered': hoveredTaskId === task.id }"
-              :style="{ top: `${originalIndex * ganttRowHeight}px`, height: `${ganttRowHeight}px` }"
+              :style="{
+                top: `${taskRowLayouts.cumulativeHeights[originalIndex]}px`,
+                height: `${(taskRowLayouts.cumulativeHeights[originalIndex + 1] ?? taskRowLayouts.cumulativeHeights[originalIndex]) - taskRowLayouts.cumulativeHeights[originalIndex]}px`,
+              }"
               @mouseenter="handleTaskRowHover(task.id)"
               @mouseleave="handleTaskRowHover(null)"
               @mousedown="onTimeDrawStart($event, task, originalIndex)"
@@ -6622,7 +6696,7 @@ onUnmounted(() => {
                   v-for="milestone in task.children"
                   :key="milestone.id"
                   :date="milestone.startDate || ''"
-                  :row-height="ganttRowHeight"
+                  :row-height="taskRowLayouts.taskHeights.get(task.id) || ganttRowHeight"
                   :day-width="dayWidth"
                   :start-date="
                     currentTimeScale === TimelineScale.YEAR
@@ -6638,6 +6712,8 @@ onUnmounted(() => {
                   :period-width="dayWidth"
                   :name="milestone.name"
                   :milestone="convertTaskToMilestone(milestone)"
+                  :task="milestone"
+                  :label-position="props.milestoneLabelPosition"
                   :scroll-left="timelineScrollLeft"
                   :container-width="timelineContainerWidth"
                   :milestone-id="milestone.id"
@@ -6651,14 +6727,21 @@ onUnmounted(() => {
                   @drag-end="handleMilestoneDragEnd"
                   @milestone-tooltip-show="handleMilestoneTooltipShow"
                   @milestone-tooltip-hide="handleMilestoneTooltipHide"
-                />
+                >
+                  <template
+                    v-if="$slots['custom-milestone-content']"
+                    #custom-milestone-content="milestoneScope"
+                  >
+                    <slot name="custom-milestone-content" v-bind="milestoneScope" />
+                  </template>
+                </MilestonePoint>
               </template>
               <!-- 独立里程碑 -->
               <template v-else-if="task.type === 'milestone'">
                 <MilestonePoint
                   :key="task.id"
                   :date="task.startDate || ''"
-                  :row-height="ganttRowHeight"
+                  :row-height="taskRowLayouts.taskHeights.get(task.id) || ganttRowHeight"
                   :day-width="dayWidth"
                   :start-date="
                     currentTimeScale === TimelineScale.YEAR
@@ -6674,6 +6757,8 @@ onUnmounted(() => {
                   :period-width="dayWidth"
                   :name="task.name"
                   :milestone="convertTaskToMilestone(task)"
+                  :task="task"
+                  :label-position="props.milestoneLabelPosition"
                   :scroll-left="timelineScrollLeft"
                   :container-width="timelineContainerWidth"
                   :milestone-id="task.id"
@@ -6687,7 +6772,14 @@ onUnmounted(() => {
                   @drag-end="handleMilestoneDragEnd"
                   @milestone-tooltip-show="handleMilestoneTooltipShow"
                   @milestone-tooltip-hide="handleMilestoneTooltipHide"
-                />
+                >
+                  <template
+                    v-if="$slots['custom-milestone-content']"
+                    #custom-milestone-content="milestoneScope"
+                  >
+                    <slot name="custom-milestone-content" v-bind="milestoneScope" />
+                  </template>
+                </MilestonePoint>
               </template>
               <!-- 普通任务条 - 排除里程碑分组和普通里程碑 -->
               <TaskBar
@@ -6695,7 +6787,7 @@ onUnmounted(() => {
                 :key="`taskbar-${task.id}-${taskBarRenderKey}`"
                 :task="task"
                 :row-index="originalIndex"
-                :row-height="ganttRowHeight"
+                :row-height="taskRowLayouts.taskHeights.get(task.id) || ganttRowHeight"
                 :day-width="dayWidth"
                 :start-date="
                   currentTimeScale === TimelineScale.YEAR
@@ -6799,12 +6891,14 @@ onUnmounted(() => {
                   :key="`taskbar-${task.id}-${taskBarRenderKey}`"
                   :task="task"
                   :row-index="originalIndex"
-                  :row-height="ganttRowHeight"
+                  :row-height="resourceViewTaskBarRowHeight"
                   :task-sub-row="
                     resourceTaskLayouts?.get(resource.id)?.taskRowMap.get(task.id) || 0
                   "
                   :row-heights="
-                    resourceTaskLayouts?.get(resource.id)?.rowHeights || [ganttRowHeight]
+                    resourceTaskLayouts?.get(resource.id)?.rowHeights || [
+                      resourceViewTaskBarRowHeight,
+                    ]
                   "
                   :day-width="dayWidth"
                   :start-date="
@@ -6898,15 +6992,18 @@ onUnmounted(() => {
                         ? getMonthTimelineRange().startDate
                         : timelineConfig.startDate
                   "
-                  :top-offset="5.5"
+                  :top-offset="conflictCanvasTopOffset"
                   :height="
-                    (resourceTaskLayouts.get(resource.id)?.totalHeight || ganttRowHeight) - 10
+                    conflictCanvasHeight(
+                      resourceTaskLayouts.get(resource.id)?.totalHeight || ganttRowHeight
+                    )
                   "
+                  :bar-top-pad="conflictTitleAbovePad"
                   :width="totalTimelineWidth"
                   :timeline-data="timelineData as any"
                   :current-time-scale="currentTimeScale"
                   :task-row-map="resourceTaskLayouts.get(resource.id)?.taskRowMap"
-                  :row-heights="resourceTaskLayouts.get(resource.id)?.rowHeights"
+                  :row-heights="getConflictRowHeights(resource.id)"
                   :scroll-left="timelineScrollLeft"
                   :container-width="timelineContainerWidth"
                   :render-limit="resourceTaskRenderLimits.get(resource.id)"
@@ -6964,7 +7061,12 @@ onUnmounted(() => {
             <div class="hover-tooltip-row">
               <span class="hover-tooltip-label">{{ t('childrenLatestEnd') }}:</span>
               <span class="hover-tooltip-value">{{
-                formatDateObj(tooltipState.parentAutoSchedule.childrenRange.maxEnd)
+                formatDateObj(
+                  getEffectiveEndDateOnly(
+                    tooltipState.parentAutoSchedule.childrenRange.maxEndRaw,
+                    tooltipState.parentAutoSchedule.childrenRange.maxEnd
+                  )
+                )
               }}</span>
             </div>
           </template>
@@ -6979,7 +7081,7 @@ onUnmounted(() => {
             <div class="hover-tooltip-row">
               <span class="hover-tooltip-label">{{ t('plannedEndDate') }}:</span>
               <span class="hover-tooltip-value">{{
-                formatTooltipDate(tooltipState.task?.endDate)
+                formatTooltipEndDate(tooltipState.task?.endDate)
               }}</span>
             </div>
             <!-- 手动模式父级且子任务溢出：额外显示子任务实际范围 -->
@@ -7002,7 +7104,12 @@ onUnmounted(() => {
               <div class="hover-tooltip-row">
                 <span class="hover-tooltip-label">{{ t('childrenLatestEnd') }}:</span>
                 <span class="hover-tooltip-value">{{
-                  formatDateObj(tooltipState.parentAutoSchedule.childrenRange.maxEnd)
+                  formatDateObj(
+                    getEffectiveEndDateOnly(
+                      tooltipState.parentAutoSchedule.childrenRange.maxEndRaw,
+                      tooltipState.parentAutoSchedule.childrenRange.maxEnd
+                    )
+                  )
                 }}</span>
               </div>
             </template>
@@ -7021,7 +7128,7 @@ onUnmounted(() => {
               <span class="hover-tooltip-label">{{ t('actualEndDate') }}:</span>
               <span class="hover-tooltip-value">{{
                 tooltipState.task?.actualEndDate
-                  ? formatTooltipDate(tooltipState.task.actualEndDate)
+                  ? formatTooltipEndDate(tooltipState.task.actualEndDate)
                   : '-'
               }}</span>
             </div>
@@ -7637,7 +7744,7 @@ onUnmounted(() => {
   width: 100%;
   /* height由内联样式动态设置，不使用固定值 */
   pointer-events: auto;
-  z-index: 11;
+  z-index: var(--gantt-z-row);
   transition: background-color 0.2s ease;
 }
 

@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { defineComponent, ref, type Ref } from 'vue'
+import { defineComponent, h, provide, ref, type Ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import { useTaskListLayout } from '@/components/TaskList/composables/taskList/useTaskListLayout'
 import type { Task } from '@/models/classes/Task'
 import { createTask, createParentTask } from '../../fixtures/tasks'
+import { makeTaskRowLayouts } from '../../fixtures/taskRowLayouts'
 
 // Erwartungswerte sind absichtlich fest eingetragen und NICHT aus VERTICAL_BUFFER,
 // Zeilenhoehe oder Ersatzhoehe hergeleitet: ein Test, der seine Erwartung aus derselben
@@ -16,16 +17,26 @@ const vieleZeilen = (anzahl: number): Task[] =>
   Array.from({ length: anzahl }, (_, i) => createTask({ id: i + 1, name: `Zeile ${i + 1}` }))
 
 /**
- * Der Composable liest Ansichtsmodus und Zeilenhoehe per inject. Ausserhalb von setup()
- * liefert inject undefined statt des Defaults - er braucht darum eine Host-Komponente.
+ * Der Composable liest Ansichtsmodus, Zeilenhoehe und taskRowLayouts per inject. Ausserhalb
+ * von setup() liefert inject undefined statt des Defaults - er braucht darum eine
+ * Host-Komponente. taskRowLayouts muss dabei aus einer *Eltern*-Komponente kommen: Vue
+ * reicht provide nur an Nachfahren weiter, nicht an die Komponente selbst.
  */
 function layoutIn(tasks: Ref<Task[]>) {
   let layout!: ReturnType<typeof useTaskListLayout>
+
+  const kind = defineComponent({
+    setup() {
+      layout = useTaskListLayout(tasks)
+      return () => null
+    },
+  })
+
   mount(
     defineComponent({
       setup() {
-        layout = useTaskListLayout(tasks)
-        return () => null
+        provide('taskRowLayouts', makeTaskRowLayouts(tasks.value))
+        return () => h(kind)
       },
     })
   )
@@ -60,8 +71,10 @@ describe('useTaskListLayout - Sichtbereich des virtuellen Scrollens', () => {
 
     layout.taskListBodyHeight.value = 20 * ZEILENHOEHE
 
-    // 20 gemessene Zeilen statt der 12 aus der Ersatzhoehe, plus 5 Puffer
-    expect(layout.visibleTaskRange.value.endIndex).toBe(25)
+    // 20 gemessene Zeilen statt der 12 aus der Ersatzhoehe, plus 5 Puffer, plus die
+    // angeschnittene Zeile an der Unterkante: 1020 liegt genau auf einer Zeilengrenze,
+    // die Binaersuche zaehlt die dort beginnende Zeile mit.
+    expect(layout.visibleTaskRange.value.endIndex).toBe(26)
   })
 
   it('haelt die Spacer so hoch, dass die Scrollstrecke vollstaendig bleibt', () => {

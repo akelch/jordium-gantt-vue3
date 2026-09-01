@@ -101,6 +101,9 @@ const messages = {
     collapseAll: '全部折叠',
     // v1.9.0 视图模式
     taskView: '任务视图',
+    // v1.12.5 日历/资源工时视图
+    calendarView: '日历视图',
+    resourceUsageView: '资源利用率',
     language: '中文',
     languageTooltip: '选择语言',
     lightMode: '明亮模式',
@@ -217,6 +220,11 @@ const messages = {
     selectResource: '选择资源',
     addResource: '添加资源',
     deleteResource: '删除资源',
+    // v1.13.5 资源类别（人力/设备/其他）
+    resourceCategory: '类别',
+    resourceCategoryHuman: '人力',
+    resourceCategoryDevice: '设备',
+    resourceCategoryOthers: '其他',
     percentMinError: '最小占比为20%',
     percentMaxWarning: '占比超过100%将标记为超负荷',
     // 通用消息
@@ -424,6 +432,9 @@ const messages = {
     collapseAll: 'Collapse All',
     // v1.9.0 视图模式
     taskView: 'Task View',
+    // v1.12.5 Calendar/Resource usage view
+    calendarView: 'Calendar View',
+    resourceUsageView: 'Resource Utilization',
     language: 'English',
     languageTooltip: 'Select language',
     lightMode: 'Light Mode',
@@ -541,6 +552,11 @@ const messages = {
     selectResource: 'Select resource',
     addResource: 'Add Resource',
     deleteResource: 'Remove resource',
+    // v1.13.5 Resource category (Human/Device/Others)
+    resourceCategory: 'Category',
+    resourceCategoryHuman: 'Human',
+    resourceCategoryDevice: 'Device',
+    resourceCategoryOthers: 'Others',
     percentMinError: 'Minimum percentage is 20%',
     percentMaxWarning: 'Percentage over 100% will be marked as overloaded',
     // Common messages

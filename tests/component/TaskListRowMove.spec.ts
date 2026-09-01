@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { mount, VueWrapper } from '@vue/test-utils'
 import TaskList from '@/components/TaskList/TaskList.vue'
 import { createTask } from '../fixtures/tasks'
+import { taskRowLayoutsProvide } from '../fixtures/taskRowLayouts'
 
 /**
  * Der Zeilen-Drag haengt an einem Prop, das erst zur Laufzeit umgeschaltet wird
@@ -9,15 +10,16 @@ import { createTask } from '../fixtures/tasks'
  * nie nur der Startwert.
  */
 function mountTaskList(enableTaskRowMove: boolean) {
+  const tasks = [
+    createTask({ id: 1, name: 'Bedarf Kran', type: 'task' }),
+    createTask({ id: 2, name: 'Bedarf Bagger', type: 'task' }),
+  ]
   return mount(TaskList, {
-    props: {
-      tasks: [
-        createTask({ id: 1, name: 'Bedarf Kran', type: 'task' }),
-        createTask({ id: 2, name: 'Bedarf Bagger', type: 'task' }),
-      ],
-      enableTaskRowMove,
+    props: { tasks, enableTaskRowMove },
+    global: {
+      stubs: { Teleport: true, TaskContextMenu: true },
+      provide: taskRowLayoutsProvide(tasks),
     },
-    global: { stubs: { Teleport: true, TaskContextMenu: true } },
   })
 }
 
